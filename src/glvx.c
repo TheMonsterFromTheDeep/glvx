@@ -19,8 +19,6 @@ static float sampleRatio = 1.f;
 
 struct PolygonPoint *polygonPointList = NULL;
 size_t polygonPointListSize = 0;
-float *fillPointList = NULL;
-size_t fillPointListSize = 0;
 
 #define GLVX_IMPLEMENTATION
 #include "glvxInternalVector.h"
@@ -29,11 +27,8 @@ size_t fillPointListSize = 0;
 
 void glvxCleanup() {
 	free(polygonPointList);
-	free(fillPointList);
 	polygonPointList = NULL;
-	fillPointList = NULL;
 	polygonPointListSize = 0;
-	fillPointListSize = 0;
 }
 
 void glvxSampleRatio(float newSampleRatio) {
@@ -227,34 +222,8 @@ void glvxStroke(glvxCurve c, float width) {
 	glEnd();
 }
 
-void glvxEarcut(size_t count, float *polygon) {
-#define list polygonPointList
-#define listSize polygonPointListSize
-	if (!list) {
-		list = malloc(sizeof(struct PolygonPoint) * count);
-		listSize = count;
-	}
-	if (listSize < count) {
-		list = realloc(list, sizeof(struct PolygonPoint) * count);
-		listSize = count;
-	}
-
-	for (size_t i = 1; i < count - 1; ++i) {
-		list[i].previous = (list + i - 1);
-		list[i].next = (list + i + 1);
-		list[i].x = polygon[i * 2];
-		list[i].y = polygon[i * 2 + 1];
-	}
-	list[0].x = polygon[0];
-	list[0].y = polygon[1];
-	list[0].previous = list + count - 1;
-	list[0].next = list + 1;
-	list[count - 1].x = polygon[2 * (count - 1)];
-	list[count - 1].y = polygon[2 * (count - 1) + 1];
-	list[count - 1].previous = list + count - 2;
-	list[count - 1].next = list;
-
-	struct PolygonPoint *p = list;
+static void performEarcut(size_t count) {
+	struct PolygonPoint *p = polygonPointList;
 
 	glBegin(GL_TRIANGLES);
 
@@ -294,14 +263,44 @@ void glvxEarcut(size_t count, float *polygon) {
 	glVertex2f(p->next->x, p->next->y);
 
 	glEnd();
+}
+
+void glvxEarcut(size_t count, float *polygon) {
+#define list polygonPointList
+#define listSize polygonPointListSize
+	if (!list) {
+		list = malloc(sizeof(struct PolygonPoint) * count);
+		listSize = count;
+	}
+	if (listSize < count) {
+		list = realloc(list, sizeof(struct PolygonPoint) * count);
+		listSize = count;
+	}
+
+	for (size_t i = 1; i < count - 1; ++i) {
+		list[i].previous = (list + i - 1);
+		list[i].next = (list + i + 1);
+		list[i].x = polygon[i * 2];
+		list[i].y = polygon[i * 2 + 1];
+	}
+	list[0].x = polygon[0];
+	list[0].y = polygon[1];
+	list[0].previous = list + count - 1;
+	list[0].next = list + 1;
+	list[count - 1].x = polygon[2 * (count - 1)];
+	list[count - 1].y = polygon[2 * (count - 1) + 1];
+	list[count - 1].previous = list + count - 2;
+	list[count - 1].next = list;
+
+	performEarcut(count);
 
 #undef list
 #undef listSize
 }
 
 void glvxPaintMask(size_t count, float *curves, glvxExtents extents) {
-#define list fillPointList
-#define listSize fillPointListSize
+#define list polygonPointList
+#define listSize polygonPointListSize
 	if (count < 1) return;
 
 	glEnable(GL_STENCIL_TEST);
@@ -309,15 +308,16 @@ void glvxPaintMask(size_t count, float *curves, glvxExtents extents) {
 	glStencilMask(1);
 	glStencilFunc(GL_ALWAYS, 0, 0xff);
 	glStencilOp(GL_ZERO, GL_ZERO, GL_ZERO);
-	size_t requiredPoints = count * 3 * 2;
+	size_t requiredPoints = count * 3;
 	if (!list) {
-		list = malloc(sizeof(float) * requiredPoints);
+		list = malloc(sizeof(struct PolygonPoint) * requiredPoints);
 		listSize = requiredPoints;
 	}
 	if (listSize < requiredPoints) {
-		list = realloc(list, sizeof(float) * requiredPoints);
+		list = realloc(list, sizeof(struct PolygonPoint) * requiredPoints);
 		listSize = requiredPoints;
 	}
+
 	size_t totalCount = count + 1;
 	size_t write = 0;
 
@@ -353,22 +353,22 @@ void glvxPaintMask(size_t count, float *curves, glvxExtents extents) {
 		float y1 = glvxCurveY(c, 1);
 
 		if (fcmp(x1, lastX) && fcmp(y1, lastY)) {
-			list[write++] = x1;
-			list[write++] = y1;
+			list[write].x = x1;
+			list[write++].y = y1;
 			lastX = x0;
 			lastY = y0;
 		}
 		else {
-			list[write++] = x0;
-			list[write++] = y0;
+			list[write].x = x0;
+			list[write++].y = y0;
 			lastX = x1;
 			lastY = y1;
 		}
 
 		float time;
 		if (glvxGetZeroCurvatureTime(curves + i * 8, &time)) {
-			list[write++] = glvxCurveX(c, time);
-			list[write++] = glvxCurveY(c, time);
+			list[write].x = glvxCurveX(c, time);
+			list[write++].y = glvxCurveY(c, time);
 			++totalCount;
 
 			fillCurve(c, 0, time);
@@ -378,9 +378,19 @@ void glvxPaintMask(size_t count, float *curves, glvxExtents extents) {
 			fillCurve(c, 0, 1);
 		}
 	}
-	list[write++] = lastX;
-	list[write++] = lastY;
-	glvxEarcut(totalCount, list);
+	list[write].x = lastX;
+	list[write++].y = lastY;
+
+	for (size_t i = 1; i < totalCount - 1; ++i) {
+		list[i].previous = (list + i - 1);
+		list[i].next = (list + i + 1);
+	}
+	list[0].previous = list + totalCount - 1;
+	list[0].next = list + 1;
+	list[totalCount - 1].previous = list + totalCount - 2;
+	list[totalCount - 1].next = list;
+
+	performEarcut(totalCount);
 
 	glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 	glStencilFunc(GL_EQUAL, 1, 0xff);
