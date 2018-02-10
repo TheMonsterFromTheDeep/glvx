@@ -43,8 +43,24 @@ float glvxCurveX(glvxCurve c, float t) {
 	return ((c[0] * t + c[1]) * t + c[2]) * t + c[3];
 }
 
+float glvxCurveXBegin(glvxCurve c) {
+	return c[3];
+}
+
+float glvxCurveXEnd(glvxCurve c) {
+	return c[0] + c[1] + c[2] + c[3];
+}
+
 float glvxCurveY(glvxCurve c, float t) {
 	return ((c[4] * t + c[5]) * t + c[6]) * t + c[7];
+}
+
+float glvxCurveYBegin(glvxCurve c) {
+	return c[7];
+}
+
+float glvxCurveYEnd(glvxCurve c) {
+	return c[4] + c[5] + c[6] + c[7];
 }
 
 void glvxGetExtents(glvxCurve c, glvxExtents extents) {
@@ -52,10 +68,10 @@ void glvxGetExtents(glvxCurve c, glvxExtents extents) {
 	float ymin = c[7], ymax = c[7];
 
 	/* Test curve endpoints */
-	float test = glvxCurveX(c, 1), test1;
+	float test = glvxCurveXEnd(c), test1;
 	if (test < xmin) xmin = test;
 	if (test > xmax) xmax = test;
-	test = glvxCurveY(c, 1);
+	test = glvxCurveYEnd(c);
 	if (test < ymin) ymin = test;
 	if (test > ymax) ymax = test;
 
@@ -347,10 +363,10 @@ void glvxPaintMask(size_t count, float *curves, glvxExtents extents) {
 	for (size_t i = 0; i < count; ++i) {
 		float *c = curves + i * 8;
 
-		float x0 = glvxCurveX(c, 0);
-		float y0 = glvxCurveY(c, 0);
-		float x1 = glvxCurveX(c, 1);
-		float y1 = glvxCurveY(c, 1);
+		float x0 = glvxCurveXBegin(c);
+		float y0 = glvxCurveYBegin(c);
+		float x1 = glvxCurveXEnd(c);
+		float y1 = glvxCurveYEnd(c);
 
 		if (fcmp(x1, lastX) && fcmp(y1, lastY)) {
 			list[write].x = x1;

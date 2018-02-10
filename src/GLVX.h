@@ -27,10 +27,17 @@ extern void glvxCleanup();
 
 extern void glvxCalculateCurve(glvxCurve curve, float location[4], float ease[4]);
 
-void glvxGetExtents(glvxCurve curve, glvxExtents extents);
-void glvxGetBounds(glvxCurve curve, glvxExtents bounds);
+extern void glvxGetExtents(glvxCurve curve, glvxExtents extents);
+extern void glvxGetBounds(glvxCurve curve, glvxExtents bounds);
 extern int glvxGetZeroCurvatureTime(glvxCurve curve, float *time);
 extern int glvxGetZeroCurvaturePoint(glvxCurve c, float *x, float *y);
+
+extern float glvxCurveX(glvxCurve, float time);
+extern float glvxCurveY(glvxCurve, float time);
+extern float glvxCurveXBegin(glvxCurve);
+extern float glvxCurveYBegin(glvxCurve);
+extern float glvxCurveXEnd(glvxCurve);
+extern float glvxCurveYEnd(glvxCurve);
 
 #ifdef __cplusplus
 }
