@@ -339,8 +339,8 @@ void glvxPaintMask(size_t count, float *curves, glvxExtents extents) {
 
 	float xmin = curves[3], ymin = curves[7], xmax = curves[3], ymax = curves[7];
 
-	float lastX = glvxCurveX(curves, 0);
-	float lastY = glvxCurveY(curves, 0);
+	float lastX = glvxCurveXBegin(curves);
+	float lastY = glvxCurveYBegin(curves);
 
 	for (size_t i = 0; i < count; ++i) {
 		glvxExtents ce;
