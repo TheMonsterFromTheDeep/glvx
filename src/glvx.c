@@ -235,7 +235,7 @@ void glvxEarcut(size_t count, float *polygon) {
 		listSize = count;
 	}
 	if (listSize < count) {
-		list = realloc(list, listSize);
+		list = realloc(list, sizeof(struct PolygonPoint) * count);
 		listSize = count;
 	}
 
