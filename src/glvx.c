@@ -300,22 +300,23 @@ void glvxEarcut(size_t count, float *polygon) {
 }
 
 void glvxPaintMask(size_t count, float *curves, glvxExtents extents) {
+#define list fillPointList
+#define listSize fillPointListSize
 	if (count < 1) return;
 
 	glEnable(GL_STENCIL_TEST);
-	glClear(GL_STENCIL_BUFFER_BIT);
 	glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
 	glStencilMask(1);
 	glStencilFunc(GL_ALWAYS, 0, 0xff);
-	glStencilOp(GL_KEEP, GL_KEEP, GL_INCR);
+	glStencilOp(GL_ZERO, GL_ZERO, GL_ZERO);
 	size_t requiredPoints = count * 3 * 2;
-	if (!fillPointList) {
-		fillPointList = malloc(sizeof(float) * requiredPoints);
-		fillPointListSize = requiredPoints;
+	if (!list) {
+		list = malloc(sizeof(float) * requiredPoints);
+		listSize = requiredPoints;
 	}
-	if (fillPointListSize < requiredPoints) {
-		fillPointList = realloc(fillPointList, sizeof(float) * requiredPoints);
-		fillPointListSize = requiredPoints;
+	if (listSize < requiredPoints) {
+		list = realloc(list, sizeof(float) * requiredPoints);
+		listSize = requiredPoints;
 	}
 	size_t totalCount = count + 1;
 	size_t write = 0;
@@ -326,6 +327,24 @@ void glvxPaintMask(size_t count, float *curves, glvxExtents extents) {
 	float lastY = glvxCurveY(curves, 0);
 
 	for (size_t i = 0; i < count; ++i) {
+		glvxExtents ce;
+		glvxGetExtents(curves + i * 8, ce);
+		if (ce[0] < xmin) xmin = ce[0];
+		if (ce[1] < ymin) ymin = ce[1];
+		if (ce[2] > xmax) xmax = ce[2];
+		if (ce[3] > ymax) ymax = ce[3];
+	}
+
+	glBegin(GL_QUADS);
+		glVertex2f(xmin, ymin);
+		glVertex2f(xmin, ymax);
+		glVertex2f(xmax, ymax);
+		glVertex2f(xmax, ymin);
+	glEnd();
+
+	glStencilOp(GL_KEEP, GL_KEEP, GL_INCR);
+
+	for (size_t i = 0; i < count; ++i) {
 		float *c = curves + i * 8;
 
 		float x0 = glvxCurveX(c, 0);
@@ -334,22 +353,22 @@ void glvxPaintMask(size_t count, float *curves, glvxExtents extents) {
 		float y1 = glvxCurveY(c, 1);
 
 		if (fcmp(x1, lastX) && fcmp(y1, lastY)) {
-			fillPointList[write++] = x1;
-			fillPointList[write++] = y1;
+			list[write++] = x1;
+			list[write++] = y1;
 			lastX = x0;
 			lastY = y0;
 		}
 		else {
-			fillPointList[write++] = x0;
-			fillPointList[write++] = y0;
+			list[write++] = x0;
+			list[write++] = y0;
 			lastX = x1;
 			lastY = y1;
 		}
 
 		float time;
 		if (glvxGetZeroCurvatureTime(curves + i * 8, &time)) {
-			fillPointList[write++] = glvxCurveX(c, time);
-			fillPointList[write++] = glvxCurveY(c, time);
+			list[write++] = glvxCurveX(c, time);
+			list[write++] = glvxCurveY(c, time);
 			++totalCount;
 
 			fillCurve(c, 0, time);
@@ -358,17 +377,10 @@ void glvxPaintMask(size_t count, float *curves, glvxExtents extents) {
 		else {
 			fillCurve(c, 0, 1);
 		}
-
-		glvxExtents ce;
-		glvxGetExtents(curves + i * 8, ce);
-		if (ce[0] < xmin) xmin = ce[0];
-		if (ce[1] < ymin) ymin = ce[1];
-		if (ce[2] > xmax) xmax = ce[2];
-		if (ce[3] > ymax) ymax = ce[3];
 	}
-	fillPointList[write++] = lastX;
-	fillPointList[write++] = lastY;
-	glvxEarcut(totalCount, fillPointList);
+	list[write++] = lastX;
+	list[write++] = lastY;
+	glvxEarcut(totalCount, list);
 
 	glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 	glStencilFunc(GL_EQUAL, 1, 0xff);
@@ -380,6 +392,8 @@ void glvxPaintMask(size_t count, float *curves, glvxExtents extents) {
 		extents[2] = xmax;
 		extents[3] = ymax;
 	}
+#undef list
+#undef listSize
 }
 
 void glvxClearMask() {
