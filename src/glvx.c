@@ -368,28 +368,6 @@ void glvxPaintMask(size_t count, float *curves, glvxExtents extents) {
 	float lastX = glvxCurveXBegin(curves);
 	float lastY = glvxCurveYBegin(curves);
 
-	/* Calculate the total bounding box */
-	for (size_t i = 0; i < count; ++i) {
-		glvxExtents ce;
-		glvxGetExtents(curves + i * 8, ce);
-		if (ce[0] < xmin) xmin = ce[0];
-		if (ce[1] < ymin) ymin = ce[1];
-		if (ce[2] > xmax) xmax = ce[2];
-		if (ce[3] > ymax) ymax = ce[3];
-	}
-
-	/* Setup stencil to zero out */
-	glStencilFunc(GL_ALWAYS, 0, 0xff);
-	glStencilOp(GL_ZERO, GL_ZERO, GL_ZERO);
-
-	/* Zero out the stencil over the bounding box */
-	glBegin(GL_QUADS);
-		glVertex2f(xmin, ymin);
-		glVertex2f(xmin, ymax);
-		glVertex2f(xmax, ymax);
-		glVertex2f(xmax, ymin);
-	glEnd();
-
 	/* Set stencil to toggle everytime a pixel is drawn */
 	glStencilOp(GL_KEEP, GL_KEEP, GL_INCR);
 
@@ -417,10 +395,24 @@ void glvxPaintMask(size_t count, float *curves, glvxExtents extents) {
 			lastY = y1;
 		}
 
+		/* Get curve extents */
+		glvxExtents ce;
+		glvxGetExtents(curves + i * 8, ce);
+
+		/* If necessary, update bounding box */
+		if (ce[0] < xmin) xmin = ce[0];
+		if (ce[1] < ymin) ymin = ce[1];
+		if (ce[2] > xmax) xmax = ce[2];
+		if (ce[3] > ymax) ymax = ce[3];
+
+		/* Get width and height for curve sample calculation */
+		ce[2] -= ce[0];
+		ce[3] -= ce[1];
+
 		/* Simply fill along the whole curve:
 		 * Any overlapping portions will be drawn twice and will cancel out
 		 */
-		fillCurve(c, 0, 1);
+		fillCurve(c, 0, 1, CURVE_SAMPLES(ce[2], ce[3]));
 	}
 	list[write].x = lastX;
 	list[write++].y = lastY;
@@ -470,6 +462,22 @@ void glvxFill(size_t count, float *curves) {
 		glVertex2f(extents[2], extents[3]);
 		glVertex2f(extents[2], extents[1]);
 	glEnd();
+
+	/* Setup stencil to zero out */
+	glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
+	glStencilFunc(GL_ALWAYS, 0, 0xff);
+	glStencilOp(GL_ZERO, GL_ZERO, GL_ZERO);
+
+	/* Zero out the stencil over the bounding box */
+	glBegin(GL_QUADS);
+		glVertex2f(extents[0], extents[1]);
+		glVertex2f(extents[0], extents[3]);
+		glVertex2f(extents[2], extents[3]);
+		glVertex2f(extents[2], extents[1]);
+	glEnd();
+
+	/* Re-enable color mask */
+	glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 
 	glvxClearMask();
 }

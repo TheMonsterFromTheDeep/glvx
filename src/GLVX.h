@@ -87,27 +87,35 @@ extern void glvxEarcut(size_t points, float *polygon);
 
 /* Sets up the stencil buffer for filling the specified curve.
  * 'curves' is an array of floating-point values, with at least 8 * 'count' members,
- * where every 8 values are one glvxCurve. glvxPaintMask takes those curves and fills
- * the stencil value with 1 wherever the shape bounded by those curves should be filled.
+ * where every 8 values are one glvxCurve. glvxPaintMask takes those curves and, wherever
+ * the shape bounded by the curves should be filled, it:
+ * - Writes a 1 to the last bit if the current stencil value there has a last bit of 0
+ * - Writes a 0 to the last bit if the current stencil value there has a last bit of 1
  * If the curve can be drawn, 'extents' is overwritten with the bounding box of the curve,
  * so that it can be filled in, for example by drawing a rectangle over the whole bounding
  * box.
  * After glvxPaintMask() returns, any drawing operations used will be affected by the mask.
- * Generally glvxClearMask should be called after glvxPaintMask() and before any other operations,
- * and anything else that uses the stencil buffer should not assume it is in any particular
- * state.
+ * Generally glvxClearMask should be called sometime after glvxPaintMask to disable the
+ * stencil buffer.
  */
 extern void glvxPaintMask(size_t count, float *curves, glvxExtents extents);
 
-/* Prevents subsequent drawing operations from being affected by the mask from glPaintMask(). */
+/* Prevents subsequent drawing operations from being affected by the mask from glPaintMask(). 
+ * Does not do any overwrite of the stencil buffer.
+ */
 extern void glvxClearMask();
 
 /* Fills the specified shape with whatever the current color is. 
  * 'curves' is an array of floating-point values, with at least 8 * 'count' members,
  * where every 8 values are one glvxCurve. glvxFill fills the shape bounded by these
  * curves without affecting the current GL color, but with overwriting the stencil.
- * Users should make no assumptions about the state of the stencil after this
- * method returns, except that it will have no effect until set up again.
+ * If some pixel had a stencil value ending with 1 before this function was called,
+ * it will:
+ * - Not be filled if it was inside the curve
+ * - Not be filled if it is outside the curve's bounding box
+ * - Be filled if it is inside the curve's bounding box but outside the curve
+ * Will also overwrite all stencil values inside the bounding box of the curve
+ * with 0.
  */
 extern void glvxFill(size_t count, float *curves);
 

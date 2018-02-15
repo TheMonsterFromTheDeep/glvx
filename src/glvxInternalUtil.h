@@ -46,26 +46,35 @@ static inline float fastInverseSquareRoot(float number) {
 	return y;
 }
 
+/* Performs curve sample calculation for specified width and height;
+ * Note that width and height parameters are used twice in macro expansion
+ */
+#define CURVE_SAMPLES(width, height) (size_t)(sqrt((width) * (width) + (height) * (height)) * 0.25 * sampleRatio)
+
 static inline size_t getCurveSamples(glvxCurve c) {
 	glvxExtents extents;
 	glvxGetBounds(c, extents);
 
-	return (size_t)(sqrt(extents[2] * extents[2] + extents[3] * extents[3]) * 0.25 * sampleRatio);
+	return CURVE_SAMPLES(extents[2], extents[3]);
 }
 
-static inline void fillCurve(glvxCurve c, float t0, float t1) {
+static inline void fillCurveSpecific(glvxCurve c, float t0, float t1, size_t sampleCount) {
 	glBegin(GL_TRIANGLE_FAN);
 
-	float samples = getCurveSamples(c) * (t1 - t0);
+	float samples = sampleCount * (t1 - t0);
 	float t = t0;
 	float step = (t1 - t0) / (float)samples;
-	for(size_t i = 0; i <= samples; ++i) {
+	for (size_t i = 0; i <= samples; ++i) {
 		glVertexVector(curveVector(c, t));
 		t += step;
 	}
 	glVertexVector(curveVector(c, t1));
 
 	glEnd();
+}
+
+static inline void fillCurve(glvxCurve c, float t0, float t1) {
+	fillCurveSpecific(c, t0, t1, getCurveSamples(c));
 }
 
 static inline float sign(float x1, float y1, float x2, float y2, float x3, float y3) {
