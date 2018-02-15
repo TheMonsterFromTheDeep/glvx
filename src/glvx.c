@@ -193,6 +193,7 @@ void glvxStroke(glvxCurve c, float width) {
 	/* We center the curve, and therefore use the half-width for projection */
 	width /= 2;
 
+	/* We are rendering the curve as a series of quads */
 	glBegin(GL_QUAD_STRIP);
 
 	Vector delta, orth, bi, proj;
@@ -202,6 +203,9 @@ void glvxStroke(glvxCurve c, float width) {
 
 	delta = subtract(current, previous);
 	orth = orthogonalTo(delta);
+	/* This instruction, which is used throughout this method, is simply approximately normalizing
+	 * 'orth': it works well enough and is slightly faster than built in square root
+	 */
 	orth = multiply(orth, fastInverseSquareRoot(squaredLength(orth)));
 
 	glVertexVector(add(previous, multiply(orth, width)));
@@ -213,13 +217,18 @@ void glvxStroke(glvxCurve c, float width) {
 
 		Vector nextDelta = subtract(current, next);
 		
+		/* The basic method is to get the bisector between the incoming direction
+		 * and outgoing direction, and then project the curve width onto it.
+		 */
 		bi = bisector(delta, nextDelta);
 
 		proj = divide(multiply(bi, width), dot(orth, bi));
 
+		/* Add the two points (which lie on the bisector) */
 		glVertexVector(add(current, proj));
 		glVertexVector(subtract(current, proj));
 
+		/* We calculate these vectors for the next loop */
 		delta = multiply(nextDelta, -1);
 		orth = orthogonalTo(delta);
 		orth = multiply(orth, fastInverseSquareRoot(squaredLength(orth)));
@@ -231,6 +240,7 @@ void glvxStroke(glvxCurve c, float width) {
 
 	orth = multiply(orth, width);
 
+	/* Last point */
 	current = curveVector(c, sampleValue);
 	glVertexVector(add(current, orth));
 	glVertexVector(subtract(current, orth));
@@ -238,16 +248,20 @@ void glvxStroke(glvxCurve c, float width) {
 	glEnd();
 }
 
-static void performEarcut(size_t count) {
+static inline void performEarcut(size_t count) {
 	struct PolygonPoint *p = polygonPointList;
 
 	glBegin(GL_TRIANGLES);
 
 	size_t remainingPoints = count;
-	size_t earError = 0;
+
+	size_t earError = 0; /* Used to prevent an infinite loop if bad geometry is specified */
+
 	while (remainingPoints > 3) {
 		struct PolygonPoint *test = p->next->next;
 		int isEar = 1;
+
+		/* Check if this is an ear */
 		while (test->next != p) {
 			if (isInside(p, test->x, test->y)) {
 				if (test != p->next && test != p->previous)
@@ -258,9 +272,11 @@ static void performEarcut(size_t count) {
 		}
 
 		if (isEar) {
+			/* If this is an ear, cut it */
 			glVertex2f(p->previous->x, p->previous->y);
 			glVertex2f(p->x, p->y);
 			glVertex2f(p->next->x, p->next->y);
+			/* Relink the linked list */
 			p->previous->next = p->next;
 			p->next->previous = p->previous;
 			p = p->next;
@@ -268,6 +284,7 @@ static void performEarcut(size_t count) {
 			earError = 0;
 		}
 		else {
+			/* Check the next vertex */
 			p = p->next;
 			++earError;
 			if (earError >= count) break;
@@ -293,21 +310,25 @@ void glvxEarcut(size_t count, float *polygon) {
 		listSize = count;
 	}
 
+	/* Build the list */
 	for (size_t i = 1; i < count - 1; ++i) {
 		list[i].previous = (list + i - 1);
 		list[i].next = (list + i + 1);
 		list[i].x = polygon[i * 2];
 		list[i].y = polygon[i * 2 + 1];
 	}
+	/* Special case for first point */
 	list[0].x = polygon[0];
 	list[0].y = polygon[1];
 	list[0].previous = list + count - 1;
 	list[0].next = list + 1;
+	/* Special case for last point */
 	list[count - 1].x = polygon[2 * (count - 1)];
 	list[count - 1].y = polygon[2 * (count - 1) + 1];
 	list[count - 1].previous = list + count - 2;
 	list[count - 1].next = list;
 
+	/* Perform earcut */
 	performEarcut(count);
 
 #undef list
@@ -319,12 +340,14 @@ void glvxPaintMask(size_t count, float *curves, glvxExtents extents) {
 #define listSize polygonPointListSize
 	if (count < 1) return;
 
+	/* Setup stencil */
 	glEnable(GL_STENCIL_TEST);
 	glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
+	/* We only need the first stencil bit for this algorithm */
 	glStencilMask(1);
-	glStencilFunc(GL_ALWAYS, 0, 0xff);
-	glStencilOp(GL_ZERO, GL_ZERO, GL_ZERO);
 	size_t requiredPoints = count * 3;
+
+	/* Ensure that earcut point list is good */
 	if (!list) {
 		list = malloc(sizeof(struct PolygonPoint) * requiredPoints);
 		listSize = requiredPoints;
@@ -334,14 +357,18 @@ void glvxPaintMask(size_t count, float *curves, glvxExtents extents) {
 		listSize = requiredPoints;
 	}
 
+	/* Represents the total number of points to earcut */
 	size_t totalCount = count + 1;
+	/* Used to write earcut points in increasing order */
 	size_t write = 0;
 
+	/* The bounding box of all passed curves; initalize at the curves x/y begin */
 	float xmin = curves[3], ymin = curves[7], xmax = curves[3], ymax = curves[7];
 
 	float lastX = glvxCurveXBegin(curves);
 	float lastY = glvxCurveYBegin(curves);
 
+	/* Calculate the total bounding box */
 	for (size_t i = 0; i < count; ++i) {
 		glvxExtents ce;
 		glvxGetExtents(curves + i * 8, ce);
@@ -351,6 +378,11 @@ void glvxPaintMask(size_t count, float *curves, glvxExtents extents) {
 		if (ce[3] > ymax) ymax = ce[3];
 	}
 
+	/* Setup stencil to zero out */
+	glStencilFunc(GL_ALWAYS, 0, 0xff);
+	glStencilOp(GL_ZERO, GL_ZERO, GL_ZERO);
+
+	/* Zero out the stencil over the bounding box */
 	glBegin(GL_QUADS);
 		glVertex2f(xmin, ymin);
 		glVertex2f(xmin, ymax);
@@ -358,16 +390,19 @@ void glvxPaintMask(size_t count, float *curves, glvxExtents extents) {
 		glVertex2f(xmax, ymin);
 	glEnd();
 
+	/* Set stencil to toggle everytime a pixel is drawn */
 	glStencilOp(GL_KEEP, GL_KEEP, GL_INCR);
 
 	for (size_t i = 0; i < count; ++i) {
 		float *c = curves + i * 8;
 
+		/* Get endpoints of curve */
 		float x0 = glvxCurveXBegin(c);
 		float y0 = glvxCurveYBegin(c);
 		float x1 = glvxCurveXEnd(c);
 		float y1 = glvxCurveYEnd(c);
 
+		/* Determine which way this curve connects to previous curve */
 		if (fcmp(x1, lastX) && fcmp(y1, lastY)) {
 			list[write].x = x1;
 			list[write++].y = y1;
@@ -375,28 +410,22 @@ void glvxPaintMask(size_t count, float *curves, glvxExtents extents) {
 			lastY = y0;
 		}
 		else {
+			/* If the curve is simply not connected, this will still work */
 			list[write].x = x0;
 			list[write++].y = y0;
 			lastX = x1;
 			lastY = y1;
 		}
 
-		float time;
-		if (glvxGetZeroCurvatureTime(curves + i * 8, &time)) {
-			list[write].x = glvxCurveX(c, time);
-			list[write++].y = glvxCurveY(c, time);
-			++totalCount;
-
-			fillCurve(c, 0, time);
-			fillCurve(c, time, 1);
-		}
-		else {
-			fillCurve(c, 0, 1);
-		}
+		/* Simply fill along the whole curve:
+		 * Any overlapping portions will be drawn twice and will cancel out
+		 */
+		fillCurve(c, 0, 1);
 	}
 	list[write].x = lastX;
 	list[write++].y = lastY;
 
+	/* Build links for earcut */
 	for (size_t i = 1; i < totalCount - 1; ++i) {
 		list[i].previous = (list + i - 1);
 		list[i].next = (list + i + 1);
@@ -408,10 +437,12 @@ void glvxPaintMask(size_t count, float *curves, glvxExtents extents) {
 
 	performEarcut(totalCount);
 
+	/* Enable color mask and set stencil pass function */
 	glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 	glStencilFunc(GL_EQUAL, 1, 0xff);
 	glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
 
+	/* Write extents to output */
 	if (extents) {
 		extents[0] = xmin;
 		extents[1] = ymin;
@@ -429,8 +460,10 @@ void glvxClearMask() {
 void glvxFill(size_t count, float *curves) {
 	glvxExtents extents;
 
+	/* Paint stencil buffer */
 	glvxPaintMask(count, curves, extents);
 
+	/* Fill specified solid color across stencil buffer */
 	glBegin(GL_QUADS);
 		glVertex2f(extents[0], extents[1]);
 		glVertex2f(extents[0], extents[3]);

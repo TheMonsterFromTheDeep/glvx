@@ -1,5 +1,13 @@
 #ifdef GLVX_IMPLEMENTATION
 
+/* This file contains a bunch of copy-pastes of glvxStroke with some
+ * slight changes, namely providing whatever additional functionality
+ * they are meant to provide.
+ *
+ * Whenever glvxStroke is updated, all of these functions should be
+ * updated similarly.
+ */
+
 void glvxStrokew(glvxCurve c, float widthStart, float widthEnd) {
 	size_t samples = getCurveSamples(c);
 	if (samples < 2) return;
