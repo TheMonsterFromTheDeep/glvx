@@ -17,6 +17,50 @@ struct PolygonPoint {
 
 static float sampleRatio = 1.f;
 
+static glvxColor leftColor = { 1.f, 1.f, 1.f, 1.f };
+static glvxColor rightColor = { 1.f, 1.f, 1.f, 1.f };
+static glvxColor beginColor = { 0.f, 0.f, 0.f, 1.f };
+static glvxColor endColor = { 0.f, 0.f, 0.f, 1.f };
+
+static float beginWidth = 1.f;
+static float endWidth = 1.f;
+static float strokeOffset = 0.f;
+
+#define SET_COLOR(dest, src)\
+	dest[0] = src[0];\
+	dest[1] = src[1];\
+	dest[2] = src[2];\
+	dest[3] = src[3]
+
+void glvxLeftColor(glvxColor newColor) {
+	SET_COLOR(leftColor, newColor);
+}
+
+void glvxRightColor(glvxColor newColor) {
+	SET_COLOR(rightColor, newColor);
+}
+
+void glvxBeginColor(glvxColor newColor) {
+	SET_COLOR(beginColor, newColor);
+}
+
+void glvxEndColor(glvxColor newColor) {
+	SET_COLOR(endColor, newColor);
+}
+
+void glvxBeginWidth(float newWidth) {
+	/* Because we use half width anyways, calculate that here */
+	beginWidth = newWidth * 0.5f;
+}
+
+void glvxEndWidth(float newWidth) {
+	endWidth = newWidth * 0.5f;
+}
+
+void glvxStrokeOffset(float newOffset) {
+	strokeOffset = newOffset;
+}
+
 struct PolygonPoint *polygonPointList = NULL;
 size_t polygonPointListSize = 0;
 
@@ -184,14 +228,27 @@ void glvxCalculateCurve(glvxCurve curve, float location[4], float ease[4]) {
 	curve[4] = (location[3] - location[1]) - (ease[1] * 3) - curve[5];
 }
 
-void glvxStroke(glvxCurve c, float width) {
+void glvxStroke(glvxCurve c) {
 	size_t samples = getCurveSamples(c);
 	if (samples < 2) return;
 	float sampleSize = 1.f / samples;
 	float sampleValue = sampleSize;
 
-	/* We center the curve, and therefore use the half-width for projection */
-	width /= 2;
+	float width = beginWidth;
+	float widthStep = (endWidth - beginWidth) / samples;
+
+	float colorStep[4];
+	float color[4];
+
+	color[0] = beginColor[0];
+	color[1] = beginColor[1];
+	color[2] = beginColor[2];
+	color[3] = beginColor[3];
+
+	colorStep[0] = (endColor[0] - beginColor[0]) / samples;
+	colorStep[1] = (endColor[1] - beginColor[1]) / samples;
+	colorStep[2] = (endColor[2] - beginColor[2]) / samples;
+	colorStep[3] = (endColor[3] - beginColor[3]) / samples;
 
 	/* We are rendering the curve as a series of quads */
 	glBegin(GL_QUAD_STRIP);
@@ -208,11 +265,18 @@ void glvxStroke(glvxCurve c, float width) {
 	 */
 	orth = multiply(orth, fastInverseSquareRoot(squaredLength(orth)));
 
-	glVertexVector(add(previous, multiply(orth, width)));
-	glVertexVector(subtract(previous, multiply(orth, width)));
+	glColor4f(color[0] * leftColor[0], color[1] * leftColor[1], color[2] * leftColor[2], color[3] * leftColor[3]);
+	glVertexVector(add(previous, multiply(orth, width * (1 + strokeOffset))));
+	glColor4f(color[0] * rightColor[0], color[1] * rightColor[1], color[2] * rightColor[2], color[3] * rightColor[3]);
+	glVertexVector(subtract(previous, multiply(orth, width * (1 - strokeOffset))));
 	
 	while(samples > 1) {
 		sampleValue += sampleSize;
+		width += widthStep;
+		color[0] += colorStep[0];
+		color[1] += colorStep[1];
+		color[2] += colorStep[2];
+		color[3] += colorStep[3];
 		Vector next = curveVector(c, sampleValue);
 
 		Vector nextDelta = subtract(current, next);
@@ -225,8 +289,10 @@ void glvxStroke(glvxCurve c, float width) {
 		proj = divide(multiply(bi, width), dot(orth, bi));
 
 		/* Add the two points (which lie on the bisector) */
-		glVertexVector(add(current, proj));
-		glVertexVector(subtract(current, proj));
+		glColor4f(color[0] * leftColor[0], color[1] * leftColor[1], color[2] * leftColor[2], color[3] * leftColor[3]);
+		glVertexVector(add(current, multiply(proj, 1 + strokeOffset)));
+		glColor4f(color[0] * rightColor[0], color[1] * rightColor[1], color[2] * rightColor[2], color[3] * rightColor[3]);
+		glVertexVector(subtract(current, multiply(proj, 1 - strokeOffset)));
 
 		/* We calculate these vectors for the next loop */
 		delta = multiply(nextDelta, -1);
@@ -242,8 +308,10 @@ void glvxStroke(glvxCurve c, float width) {
 
 	/* Last point */
 	current = curveVector(c, sampleValue);
-	glVertexVector(add(current, orth));
-	glVertexVector(subtract(current, orth));
+	glColor4f(color[0] * leftColor[0], color[1] * leftColor[1], color[2] * leftColor[2], color[3] * leftColor[3]);
+	glVertexVector(add(current, multiply(orth, 1 + strokeOffset)));
+	glColor4f(color[0] * rightColor[0], color[1] * rightColor[1], color[2] * rightColor[2], color[3] * rightColor[3]);
+	glVertexVector(subtract(current, multiply(orth, 1 - strokeOffset)));
 
 	glEnd();
 }
@@ -413,7 +481,7 @@ void glvxPaintMask(size_t count, float *curves, glvxExtents extents) {
 		/* Simply fill along the whole curve:
 		 * Any overlapping portions will be drawn twice and will cancel out
 		 */
-		fillCurve(c, 0, 1, CURVE_SAMPLES(ce[2], ce[3]));
+		fillCurveSpecific(c, 0, 1, CURVE_SAMPLES(ce[2], ce[3]));
 	}
 	list[write].x = lastX;
 	list[write++].y = lastY;

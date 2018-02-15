@@ -49,33 +49,16 @@ extern float glvxGetSampleRatio();
  * Does not affect current color or stencil masking, and so can be used with
  * either.
  */
-extern void glvxStroke(glvxCurve curve, float width);
+extern void glvxStroke(glvxCurve curve);
 
-/* Strokes the specified curve, varying width linearly between the specified endpoint widths.
- * The curve will have widthStart at its starting endpoint, and widthEnd at its closing endpoint.
- * Starting and closing endpoints can be polled with glvxCurveXBegin(), glvxCurveYBegin(),
- * glvxCurveXEnd(), and glvxCurveYEnd().
- * Does not affect current color or stencil masking, and so can be used with either.
- */
-extern void glvxStrokew(glvxCurve curve, float widthStart, float widthEnd);
+extern void glvxLeftColor(glvxColor leftColor);
+extern void glvxRightColor(glvxColor rightColor);
+extern void glvxBeginColor(glvxColor beginColor);
+extern void glvxEndColor(glvxColor endColor);
 
-/* Strokes the specified curve with the specified width, varying color linearly between the specified endpoint colors.
- * The curve will have colorStart at its starting endpoint, and colorEnd at its closing endpoint.
- * Starting and closing endpoints can be polled with glvxCurveXBegin(), glvxCurveYBegin(),
- * glvxCurveXEnd(), and glvxCurveYEnd().
- * Sets OpenGL color at all sample points along the curve, to color linearly interpolated between the specified
- * endpoint colors.
- */
-extern void glvxStrokec(glvxCurve curve, float width, glvxColor colorStart, glvxColor colorEnd);
-
-/* Strokes the specified curve, varying with and color linearly between the specified endpoint widths and colors.
- * The curve will have widthStart and colorStart at its starting endpoint, and widthEnd and colorEnd at its closing endpoint.
- * Starting and closing endpoints can be polled with glvxCurveXBegin(), glvxCurveYBegin(),
- * glvxCurveXEnd(), and glvxCurveYEnd().
- * Sets OpenGL color at all sample points along the curve, to color linearly interpolated between the specified
- * endpoint colors.
- */
-extern void glvxStrokewc(glvxCurve curve, float widthStart, float widthEnd, glvxColor colorStart, glvxColor colorEnd);
+extern void glvxBeginWidth(float width);
+extern void glvxEndWidth(float width);
+extern void glvxStrokeOffset(float offset);
 
 /* Fills the specified simple polygon.
  * The implementation of this method is not guaranteed to be earcut, as long as it behaves equivalently or better.
