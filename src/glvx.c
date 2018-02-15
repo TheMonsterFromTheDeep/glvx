@@ -369,6 +369,7 @@ void glvxPaintMask(size_t count, float *curves, glvxExtents extents) {
 	float lastY = glvxCurveYBegin(curves);
 
 	/* Set stencil to toggle everytime a pixel is drawn */
+	glStencilFunc(GL_ALWAYS, 0, 0xff);
 	glStencilOp(GL_KEEP, GL_KEEP, GL_INCR);
 
 	for (size_t i = 0; i < count; ++i) {
