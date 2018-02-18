@@ -67,7 +67,6 @@ size_t polygonPointListSize = 0;
 #define GLVX_IMPLEMENTATION
 #include "glvxInternalVector.h"
 #include "glvxInternalUtil.h"
-#include "glvxInternalAdditionalStroke.h"
 
 void glvxCleanup() {
 	free(polygonPointList);
@@ -518,19 +517,164 @@ void glvxClearMask() {
 	glDisable(GL_STENCIL_TEST);
 }
 
-void glvxFill(size_t count, float *curves) {
-	glvxExtents extents;
+void glvxPutMask(glvxExtents extents) {
+	glEnable(GL_STENCIL_TEST);
+	glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
+	glStencilMask(3);
+	glStencilFunc(GL_NOTEQUAL, 2, 1);
+	glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
 
-	/* Paint stencil buffer */
-	glvxPaintMask(count, curves, extents);
-
-	/* Fill specified solid color across stencil buffer */
 	glBegin(GL_QUADS);
 		glVertex2f(extents[0], extents[1]);
 		glVertex2f(extents[0], extents[3]);
 		glVertex2f(extents[2], extents[3]);
 		glVertex2f(extents[2], extents[1]);
 	glEnd();
+}
+
+void glvxBeginMask() {
+	glEnable(GL_STENCIL_TEST);
+	glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+	glStencilMask(3);
+	glStencilFunc(GL_EQUAL, 1, 3);
+}
+
+void glvxFill(size_t count, float *curves) {
+	glvxExtents extents;
+
+	/* Paint stencil buffer */
+	glvxPaintMask(count, curves, extents);
+
+	glvxFillExtents(extents);
+}
+
+static float gradBeginX = 0;
+static float gradBeginY = 0;
+static float gradDeltaX = 1;
+static float gradDeltaY = 0;
+
+#define FILL_MODE_SOLID 0
+#define FILL_MODE_GRADIENT 1
+static int fillMode = FILL_MODE_SOLID;
+
+static float *gradientTimes;
+static float *gradientColors;
+static size_t gradientPoints = 0;
+
+static inline void setGradientColor(size_t index) {
+	index *= 4;
+	glColor4f(gradientColors[index], gradientColors[index + 1], gradientColors[index + 2], gradientColors[index + 3]);
+}
+
+static void performSolidFill(glvxExtents extents) {
+	glBegin(GL_QUADS);
+		glVertex2f(extents[0], extents[1]);
+		glVertex2f(extents[0], extents[3]);
+		glVertex2f(extents[2], extents[3]);
+		glVertex2f(extents[2], extents[1]);
+	glEnd();
+}
+
+static void performGradientFill(glvxExtents extents) {
+	if (gradientPoints < 1) {
+		performSolidFill(extents);
+		return;
+	}	
+	if (gradientPoints == 1) {
+		setGradientColor(0);
+		performSolidFill(extents);
+		return;
+	}
+
+	float dx = -gradDeltaY;
+	float dy = gradDeltaX;
+	float deltaMag = sqrt(dx * dx + dy * dy);
+	dx /= deltaMag;
+	dy /= deltaMag;
+
+	Vector pointDiff, startDiff, endDiff;
+	/* Comparing >= 0 to > 0 allows this to work also with horizontal and vertical gradients */
+	if ((gradDeltaX >= 0) != (gradDeltaY > 0)) {
+		pointDiff = make(gradBeginX - extents[0], gradBeginY - extents[1]);
+		startDiff = make(-extents[0], -extents[3]);
+		endDiff = make(-extents[2], -extents[1]);
+	}
+	else {
+		pointDiff = make(gradBeginX - extents[2], gradBeginY - extents[1]);
+		startDiff = make(-extents[0], -extents[1]);
+		endDiff = make(-extents[2], -extents[3]);
+	}
+
+	Vector grad = make(gradDeltaX, gradDeltaY);
+	Vector gradNormal = make(dx, dy);
+	float dist = crossLen(grad, pointDiff) / length(grad);
+	float sign = 1;
+	if (gradDeltaX < 0) sign = -1;
+	
+	float startX = gradBeginX - dx * dist * sign;
+	float startY = gradBeginY - dy * dist * sign;
+
+	glBegin(GL_QUAD_STRIP);
+
+	float pointSize = length(make(extents[2] - extents[0], extents[3] - extents[1]));
+
+	{
+		startDiff = add(make(startX, startY), startDiff);
+		float startDist = crossLen(gradNormal, startDiff) / length(gradNormal);
+
+		float x = startX + gradDeltaX * startDist * sign / deltaMag;
+		float y = startY + gradDeltaY * startDist * sign / deltaMag;
+
+		setGradientColor(0);
+		glVertex2f(x, y);
+		glVertex2f(x + dx * pointSize, y + dy * pointSize);
+	}
+	for (size_t i = 0; i < gradientPoints; ++i) {
+		float x = startX + gradDeltaX * gradientTimes[i];
+		float y = startY + gradDeltaY * gradientTimes[i];
+
+		setGradientColor(i);
+		glVertex2f(x, y);
+		glVertex2f(x + dx * pointSize, y + dy * pointSize);
+	}
+	{
+		endDiff = add(make(startX, startY), endDiff);
+		float endDist = crossLen(gradNormal, endDiff) / length(gradNormal);
+
+		float x = startX + gradDeltaX * endDist * sign / deltaMag;
+		float y = startY + gradDeltaY * endDist * sign / deltaMag;
+
+		setGradientColor(gradientPoints - 1);
+		glVertex2f(x, y);
+		glVertex2f(x + dx * pointSize, y + dy * pointSize);
+	}
+
+	glEnd();
+}
+
+void glvxStencilRect(glvxExtents extents) {
+	/* Setup stencil */
+	glEnable(GL_STENCIL_TEST);
+	glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
+	glStencilMask(1);
+	glStencilFunc(GL_ALWAYS, 0, 0xff);
+	glStencilOp(GL_KEEP, GL_KEEP, GL_INCR);
+
+	performSolidFill(extents);
+
+	/* Enable color mask and set stencil pass function */
+	glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+	glStencilFunc(GL_EQUAL, 1, 0xff);
+	glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
+}
+
+void glvxFillExtents(glvxExtents extents) {
+	if (fillMode == FILL_MODE_GRADIENT) {
+		performGradientFill(extents);
+	}
+	else {
+		performSolidFill(extents);
+	}
 
 	/* Setup stencil to zero out */
 	glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
@@ -538,15 +682,35 @@ void glvxFill(size_t count, float *curves) {
 	glStencilOp(GL_ZERO, GL_ZERO, GL_ZERO);
 
 	/* Zero out the stencil over the bounding box */
-	glBegin(GL_QUADS);
-		glVertex2f(extents[0], extents[1]);
-		glVertex2f(extents[0], extents[3]);
-		glVertex2f(extents[2], extents[3]);
-		glVertex2f(extents[2], extents[1]);
-	glEnd();
+	performSolidFill(extents);
 
 	/* Re-enable color mask */
 	glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 
 	glvxClearMask();
+}
+
+void glvxFillModeGradient() { fillMode = FILL_MODE_GRADIENT; }
+
+void glvxFillModeSolid() { fillMode = FILL_MODE_SOLID; }
+
+void glvxGradient(size_t count, float *colors, float *times) {
+	gradientTimes = times;
+	gradientColors = colors;
+	gradientPoints = count;
+}
+
+void glvxGradientBegin(float x, float y) {
+	gradBeginX = x;
+	gradBeginY = y;
+}
+
+void glvxGradientEnd(float x, float y) {
+	gradDeltaX = x - gradBeginX;
+	gradDeltaY = y - gradBeginY;
+}
+
+void glvxGradientDirection(float x, float y) {
+	gradDeltaX = x;
+	gradDeltaY = y;
 }

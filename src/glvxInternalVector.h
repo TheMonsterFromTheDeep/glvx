@@ -44,6 +44,10 @@ static inline float dot(Vector a, Vector b) {
 	return a.x * b.x + a.y * b.y;
 }
 
+static inline float crossLen(Vector a, Vector b) {
+	return a.x * b.y - a.y * b.x;
+}
+
 static inline void glVertexVector(Vector v) {
 	glVertex2f(v.x, v.y);
 }

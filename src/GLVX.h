@@ -102,6 +102,13 @@ extern void glvxClearMask();
  */
 extern void glvxFill(size_t count, float *curves);
 
+extern void glvxFillExtents(glvxExtents);
+
+extern void glvxStencilRect(glvxExtents);
+
+extern void glvxPutMask(glvxExtents);
+extern void glvxBeginMask();
+
 /* Cleans up internal memory used by glvx.
  * Should be called on application exit.
  */
@@ -168,6 +175,15 @@ extern float glvxCurveXEnd(glvxCurve);
 
 /* Gets the ending y coordinate of the curve. */
 extern float glvxCurveYEnd(glvxCurve);
+
+extern void glvxGradientBegin(float x, float y);
+extern void glvxGradientEnd(float x, float y);
+extern void glvxGradientDirection(float x, float y);
+
+extern void glvxFillModeGradient();
+extern void glvxFillModeSolid();
+
+extern void glvxGradient(size_t count, float *colors, float *times);
 
 #ifdef __cplusplus
 }
