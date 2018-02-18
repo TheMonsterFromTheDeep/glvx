@@ -1,21 +1,51 @@
-#include "GLVX.h"
-
-#if defined(_WIN32) || defined(WIN32)
-	#include <Windows.h>
-#endif
-
-#include <gl/GL.h>
-
+#include <stdio.h>
+#include <string.h>
 #include <math.h>
+
+#define GLEW_STATIC
+#include <GL/glew.h>
+
+#include "GLVX.h"
 
 #define GLVX_IMPLEMENTATION
 #include "glvxInternalParameters.h"
 #include "glvxInternalCurveProperties.h"
 #include "glvxInternalVector.h"
 #include "glvxInternalUtil.h"
+#include "glvxInternalShaderLoader.h"
 
 float *curveEvenOddList = NULL;
 size_t curveEvenOddListSize = 0;
+
+static GLuint hsvShader = 0;
+
+int glvxInit() {
+	if (GLEW_OK != glewInit()) {
+		return 1;
+	}
+
+	if (GLEW_VERSION_1_5) {
+		hsvShader = compileShader(
+			#include "glvxVertexShaderHSV.h"
+			,
+			#include "glvxFragmentShaderHSV.h"
+		);
+	}
+
+	return 0;
+}
+
+void glvxUseHSV() {
+	if (GLEW_VERSION_1_5) {
+		glUseProgram(hsvShader);
+	}
+}
+
+void glvxUseRGB() {
+	if (GLEW_VERSION_1_5) {
+		glUseProgram(0);
+	}
+}
 
 void glvxCleanup() {
 	free(curveEvenOddList);

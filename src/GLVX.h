@@ -122,6 +122,10 @@ extern void glvxPaint(glvxExtents);
  * Should be called on application exit.
  */
 extern void glvxCleanup();
+extern int glvxInit();
+
+extern void glvxUseHSV();
+extern void glvxUseRGB();
 
 /* Overwrites the specified glvxCurve with the curve between endpoints
  * (location[0], location[1]) and (location[2], location[3]), with ease-in and ease-out
