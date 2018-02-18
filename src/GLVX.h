@@ -77,16 +77,17 @@ extern void glvxEarcut(size_t points, float *polygon);
  * If the curve can be drawn, 'extents' is overwritten with the bounding box of the curve,
  * so that it can be filled in, for example by drawing a rectangle over the whole bounding
  * box.
- * After glvxPaintMask() returns, any drawing operations used will be affected by the mask.
+ * After glvxStencil() returns, any drawing operations used will be affected by the mask.
  * Generally glvxClearMask should be called sometime after glvxPaintMask to disable the
  * stencil buffer.
  */
-extern void glvxPaintMask(size_t count, float *curves, glvxExtents extents);
+extern void glvxStencil(size_t count, float *curves, glvxExtents extents);
+extern void glvxStencilRect(glvxExtents);
 
-/* Prevents subsequent drawing operations from being affected by the mask from glPaintMask(). 
+/* Prevents subsequent drawing operations from being affected by the mask from glStencil(). 
  * Does not do any overwrite of the stencil buffer.
  */
-extern void glvxClearMask();
+extern void glvxDisableStencil();
 
 /* Fills the specified shape with whatever the current color is. 
  * 'curves' is an array of floating-point values, with at least 8 * 'count' members,
@@ -101,13 +102,15 @@ extern void glvxClearMask();
  * with 0.
  */
 extern void glvxFill(size_t count, float *curves);
+extern void glvxFillRect(glvxExtents);
 
-extern void glvxFillExtents(glvxExtents);
+extern void glvxFillMasked(size_t count, float *curves);
+extern void glvxFillRectMasked(glvxExtents);
 
-extern void glvxStencilRect(glvxExtents);
+extern void glvxStencilToMask(glvxExtents);
+extern void glvxEnableMask();
 
-extern void glvxPutMask(glvxExtents);
-extern void glvxBeginMask();
+extern void glvxPaint(glvxExtents);
 
 /* Cleans up internal memory used by glvx.
  * Should be called on application exit.
@@ -176,13 +179,12 @@ extern float glvxCurveXEnd(glvxCurve);
 /* Gets the ending y coordinate of the curve. */
 extern float glvxCurveYEnd(glvxCurve);
 
-extern void glvxGradientBegin(float x, float y);
-extern void glvxGradientEnd(float x, float y);
-extern void glvxGradientDirection(float x, float y);
-
 extern void glvxFillModeGradient();
 extern void glvxFillModeSolid();
 
+extern void glvxGradientBegin(float x, float y);
+extern void glvxGradientEnd(float x, float y);
+extern void glvxGradientDirection(float x, float y);
 extern void glvxGradient(size_t count, float *colors, float *times);
 
 #ifdef __cplusplus
