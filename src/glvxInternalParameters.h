@@ -32,6 +32,18 @@ static size_t gradientPoints = 0;
 	dest[2] = src[2];\
 	dest[3] = src[3]
 
+#define SET_COLOR_RGB(dest)\
+	dest[0] = r;\
+	dest[1] = g;\
+	dest[2] = b;\
+	dest[3] = 1.f
+
+#define SET_COLOR_RGBA(dest)\
+	dest[0] = r;\
+	dest[1] = g;\
+	dest[2] = b;\
+	dest[3] = a
+
 void glvxSampleRatio(float newSampleRatio) {
 	sampleRatio = newSampleRatio;
 }
@@ -44,21 +56,21 @@ void glvxMiterLimit(float newMiterLimit) {
 	miterLimit = newMiterLimit;
 }
 
-void glvxLeftColor(glvxColor newColor) {
-	SET_COLOR(leftColor, newColor);
-}
+void glvxLeftColor(glvxColor newColor) { SET_COLOR(leftColor, newColor); }
+void glvxLeftColor3(float r, float g, float b) { SET_COLOR_RGB(leftColor); }
+void glvxLeftColor4(float r, float g, float b, float a) { SET_COLOR_RGBA(leftColor); }
 
-void glvxRightColor(glvxColor newColor) {
-	SET_COLOR(rightColor, newColor);
-}
+void glvxRightColor(glvxColor newColor) { SET_COLOR(rightColor, newColor); }
+void glvxRightColor3(float r, float g, float b) { SET_COLOR_RGB(rightColor); }
+void glvxRightColor4(float r, float g, float b, float a) { SET_COLOR_RGBA(rightColor); }
 
-void glvxBeginColor(glvxColor newColor) {
-	SET_COLOR(beginColor, newColor);
-}
+void glvxBeginColor(glvxColor newColor) { SET_COLOR(beginColor, newColor); }
+void glvxBeginColor3(float r, float g, float b) { SET_COLOR_RGB(beginColor); }
+void glvxBeginColor4(float r, float g, float b, float a) { SET_COLOR_RGBA(beginColor); }
 
-void glvxEndColor(glvxColor newColor) {
-	SET_COLOR(endColor, newColor);
-}
+void glvxEndColor(glvxColor newColor) { SET_COLOR(endColor, newColor);  }
+void glvxEndColor3(float r, float g, float b) { SET_COLOR_RGB(endColor); }
+void glvxEndColor4(float r, float g, float b, float a) { SET_COLOR_RGBA(endColor); }
 
 void glvxBeginWidth(float newWidth) {
 	/* Because we use half width anyways, calculate that here */
