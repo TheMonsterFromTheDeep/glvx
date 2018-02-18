@@ -61,41 +61,47 @@ void glvxMiterLimit(float newMiterLimit) {
 	miterLimit = newMiterLimit;
 }
 
-void glvxLeftBeginColor(glvxColor newColor) { SET_COLOR(leftBeginColor, newColor); }
-void glvxLeftBeginColor3(float r, float g, float b) { SET_COLOR_RGB(leftBeginColor); }
-void glvxLeftBeginColor4(float r, float g, float b, float a) { SET_COLOR_RGBA(leftBeginColor); }
+inline void glvxLeftBeginColor(glvxColor newColor) { SET_COLOR(leftBeginColor, newColor); }
+inline void glvxLeftBeginColor3(float r, float g, float b) { SET_COLOR_RGB(leftBeginColor); }
+inline void glvxLeftBeginColor4(float r, float g, float b, float a) { SET_COLOR_RGBA(leftBeginColor); }
 
-void glvxRightBeginColor(glvxColor newColor) { SET_COLOR(rightBeginColor, newColor); }
-void glvxRightBeginColor3(float r, float g, float b) { SET_COLOR_RGB(rightBeginColor); }
-void glvxRightBeginColor4(float r, float g, float b, float a) { SET_COLOR_RGBA(rightBeginColor); }
+inline void glvxRightBeginColor(glvxColor newColor) { SET_COLOR(rightBeginColor, newColor); }
+inline void glvxRightBeginColor3(float r, float g, float b) { SET_COLOR_RGB(rightBeginColor); }
+inline void glvxRightBeginColor4(float r, float g, float b, float a) { SET_COLOR_RGBA(rightBeginColor); }
 
-void glvxLeftEndColor(glvxColor newColor) { SET_COLOR(leftEndColor, newColor); }
-void glvxLeftEndColor3(float r, float g, float b) { SET_COLOR_RGB(leftEndColor); }
-void glvxLeftEndColor4(float r, float g, float b, float a) { SET_COLOR_RGBA(leftEndColor); }
+inline void glvxLeftEndColor(glvxColor newColor) { SET_COLOR(leftEndColor, newColor); }
+inline void glvxLeftEndColor3(float r, float g, float b) { SET_COLOR_RGB(leftEndColor); }
+inline void glvxLeftEndColor4(float r, float g, float b, float a) { SET_COLOR_RGBA(leftEndColor); }
 
-void glvxRightEndColor(glvxColor newColor) { SET_COLOR(rightEndColor, newColor);  }
-void glvxRightEndColor3(float r, float g, float b) { SET_COLOR_RGB(rightEndColor); }
-void glvxRightEndColor4(float r, float g, float b, float a) { SET_COLOR_RGBA(rightEndColor); }
+inline void glvxRightEndColor(glvxColor newColor) { SET_COLOR(rightEndColor, newColor);  }
+inline void glvxRightEndColor3(float r, float g, float b) { SET_COLOR_RGB(rightEndColor); }
+inline void glvxRightEndColor4(float r, float g, float b, float a) { SET_COLOR_RGBA(rightEndColor); }
 
-void glvxLeftColor(glvxColor newColor) {
-	glvxLeftBeginColor(newColor);
-	glvxLeftEndColor(newColor);
-}
+#define DEF_MULTI_COLOR(name, first, second)\
+	void name(glvxColor newColor) {\
+		first(newColor);           \
+		second(newColor);          \
+	}                              \
+								   \
+	void name ## 3(float r,        \
+				   float g,        \
+				   float b) {      \
+		first ## 3(r, g, b);       \
+		second ## 3(r, g, b);      \
+	}                              \
+								   \
+	void name ## 4(float r,        \
+				   float g,        \
+				   float b,        \
+				   float a) {      \
+		first ## 4(r, g, b, a);    \
+		second ## 4(r, g, b, a);   \
+	}
 
-void glvxRightColor(glvxColor newColor) {
-	glvxRightBeginColor(newColor);
-	glvxRightEndColor(newColor);
-}
-
-void glvxBeginColor(glvxColor newColor) {
-	glvxLeftBeginColor(newColor);
-	glvxRightBeginColor(newColor);
-}
-
-void glvxEndColor(glvxColor newColor) {
-	glvxLeftEndColor(newColor);
-	glvxRightEndColor(newColor);
-}
+DEF_MULTI_COLOR(glvxLeftColor, glvxLeftBeginColor, glvxLeftEndColor)
+DEF_MULTI_COLOR(glvxRightColor, glvxRightBeginColor, glvxRightEndColor)
+DEF_MULTI_COLOR(glvxBeginColor, glvxLeftBeginColor, glvxRightBeginColor)
+DEF_MULTI_COLOR(glvxEndColor, glvxLeftEndColor, glvxRightEndColor)
 
 void glvxBeginWidth(float newWidth) {
 	/* Because we use half width anyways, calculate that here */

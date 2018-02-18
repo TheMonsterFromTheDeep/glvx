@@ -54,18 +54,34 @@ extern float glvxGetSampleRatio();
  */
 extern void glvxStroke(glvxCurve curve);
 
+extern void glvxLeftBeginColor(glvxColor);
+extern void glvxLeftBeginColor3(float r, float g, float b);
+extern void glvxLeftBeginColor4(float r, float g, float b, float a);
+
+extern void glvxRightBeginColor(glvxColor);
+extern void glvxRightBeginColor3(float r, float g, float b);
+extern void glvxRightBeginColor4(float r, float g, float b, float a);
+
+extern void glvxLeftEndColor(glvxColor);
+extern void glvxLeftEndColor3(float r, float g, float b);
+extern void glvxLeftEndColor4(float r, float g, float b, float a);
+
+extern void glvxRightEndColor(glvxColor);
+extern void glvxRightEndColor3(float r, float g, float b);
+extern void glvxRightEndColor4(float r, float g, float b, float a);
+
 extern void glvxLeftColor(glvxColor leftColor);
-//extern void glvxLeftColor3(float r, float g, float b);
-//extern void glvxLeftColor4(float r, float g, float b, float a);
+extern void glvxLeftColor3(float r, float g, float b);
+extern void glvxLeftColor4(float r, float g, float b, float a);
 extern void glvxRightColor(glvxColor rightColor);
-//extern void glvxRightColor3(float r, float g, float b);
-//extern void glvxRightColor4(float r, float g, float b, float a);
+extern void glvxRightColor3(float r, float g, float b);
+extern void glvxRightColor4(float r, float g, float b, float a);
 extern void glvxBeginColor(glvxColor beginColor);
-//extern void glvxBeginColor3(float r, float g, float b);
-//extern void glvxBeginColor4(float r, float g, float b, float a);
+extern void glvxBeginColor3(float r, float g, float b);
+extern void glvxBeginColor4(float r, float g, float b, float a);
 extern void glvxEndColor(glvxColor endColor);
-//extern void glvxEndColor3(float r, float g, float b);
-//extern void glvxEndColor4(float r, float g, float b, float a);
+extern void glvxEndColor3(float r, float g, float b);
+extern void glvxEndColor4(float r, float g, float b, float a);
 
 extern void glvxBeginWidth(float width);
 extern void glvxEndWidth(float width);
