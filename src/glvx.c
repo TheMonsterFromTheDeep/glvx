@@ -7,6 +7,8 @@
 
 #include "GLVX.h"
 
+#define PI 3.14159265358979323846264338327950288
+
 float *curveEvenOddList = NULL;
 size_t curveEvenOddListSize = 0;
 
@@ -104,6 +106,22 @@ void glvxGetExtents(glvxCurve c, glvxExtents extents) {
 void glvxGetBounds(glvxCurve c, glvxExtents bounds) {
 	if (!bounds) return;
 	glvxGetExtents(c, bounds);
+	bounds[2] -= bounds[0];
+	bounds[3] -= bounds[1];
+}
+
+void glvxGetCircleExtents(float x, float y, float r, glvxExtents extents) {
+	if (extents) {
+		extents[0] = x - r;
+		extents[1] = y - r;
+		extents[2] = x + r;
+		extents[3] = y + r;
+	}
+}
+
+void glvxGetCircleBounds(float x, float y, float r, glvxExtents bounds) {
+	if (!bounds) return;
+	glvxGetCircleExtents(x, y, r, bounds);
 	bounds[2] -= bounds[0];
 	bounds[3] -= bounds[1];
 }
@@ -453,34 +471,6 @@ void glvxEnableMask() {
 	glStencilFunc(GL_EQUAL, 1, 3);
 }
 
-void glvxFill(size_t count, float *curves) {
-	glvxExtents extents;
-
-	/* Paint stencil buffer */
-	glvxStencil(count, curves, extents);
-
-	glvxPaint(extents);
-}
-
-void glvxFillRect(glvxExtents rect) {
-	glvxStencilRect(rect);
-	glvxPaint(rect);
-}
-
-void glvxFillMasked(size_t count, float *curves) {
-	glvxExtents extents;
-
-	glvxStencil(count, curves, extents);
-	glvxEnableMask();
-	glvxPaint(extents);
-}
-
-void glvxFillRectMasked(glvxExtents rect) {
-	glvxStencilRect(rect);
-	glvxEnableMask();
-	glvxPaint(rect);
-}
-
 static inline void setGradientColor(size_t index) {
 	index *= 4;
 	glColor4f(gradientColors[index], gradientColors[index + 1], gradientColors[index + 2], gradientColors[index + 3]);
@@ -572,20 +562,87 @@ static void performGradientFill(glvxExtents extents) {
 	glEnd();
 }
 
-void glvxStencilRect(glvxExtents extents) {
-	/* Setup stencil */
+static inline void stencilWriteSetup() {
 	glEnable(GL_STENCIL_TEST);
 	glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
 	glStencilMask(1);
 	glStencilFunc(GL_ALWAYS, 0, 0xff);
 	glStencilOp(GL_KEEP, GL_KEEP, GL_INCR);
+}
 
-	performSolidFill(extents);
-
+static inline void stencilUseSetup() {
 	/* Enable color mask and set stencil pass function */
 	glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 	glStencilFunc(GL_EQUAL, 1, 0xff);
 	glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
+}
+
+void glvxStencilRect(glvxExtents extents) {
+	stencilWriteSetup();
+	performSolidFill(extents);
+	stencilUseSetup();
+}
+
+void glvxStencilRoundRect(glvxExtents extents, float r) {
+	if (r < 0) r = -r;
+
+	stencilWriteSetup();
+
+	size_t steps = (size_t)ceil(PI * 2 * r * 0.25f * sampleRatio);
+	float stepSize = (float)(PI / (steps * 2)); /* 2pi / (steps * 4) */
+
+	glBegin(GL_TRIANGLE_FAN);
+
+	float left = extents[0] + r;
+	float right = extents[2] - r;
+	float bottom = extents[1] + r;
+	float top = extents[3] - r;
+
+	for (size_t i = 0; i <= steps; ++i) {
+		float t = stepSize * i;
+		glVertex2d(right + r * cos(t), top + r * sin(t));
+	}
+
+	for (size_t i = steps; i <= steps * 2; ++i) {
+		float t = stepSize * i;
+		glVertex2d(left + r * cos(t), top + r * sin(t));
+	}
+
+	for (size_t i = steps * 2; i <= steps * 3; ++i) {
+		float t = stepSize * i;
+		glVertex2d(left + r * cos(t), bottom + r * sin(t));
+	}
+
+	for (size_t i = steps * 3; i <= steps * 4; ++i) {
+		float t = stepSize * i;
+		glVertex2d(right + r * cos(t), bottom + r * sin(t));
+	}
+
+	glEnd();
+
+	stencilUseSetup();
+}
+
+void glvxStencilCircle(float x, float y, float r, glvxExtents extents) {
+	if (r < 0) r = -r;
+
+	stencilWriteSetup();
+
+	size_t steps = (size_t)ceil(PI * 2 * r * sampleRatio); /* Circumference */
+	float stepSize = (float)((PI * 2) / steps);
+
+	glBegin(GL_TRIANGLE_FAN);
+
+	for (size_t i = 0; i <= steps; ++i) {
+		float t = stepSize * i;
+		glVertex2d(x + r * cos(t), y + r * sin(t));
+	}
+
+	glEnd();
+
+	stencilUseSetup();
+
+	glvxGetCircleExtents(x, y, r, extents);
 }
 
 void glvxPaint(glvxExtents extents) {
@@ -610,3 +667,54 @@ void glvxPaint(glvxExtents extents) {
 	glvxDisableStencil();
 }
 
+void glvxFill(size_t count, float *curves) {
+	glvxExtents extents;
+
+	/* Paint stencil buffer */
+	glvxStencil(count, curves, extents);
+
+	glvxPaint(extents);
+}
+
+void glvxFillRect(glvxExtents rect) {
+	glvxStencilRect(rect);
+	glvxPaint(rect);
+}
+
+void glvxFillRoundRect(glvxExtents rect, float r) {
+	glvxStencilRoundRect(rect, r);
+	glvxPaint(rect);
+}
+
+void glvxFillCircle(float x, float y, float r) {
+	glvxExtents extents;
+	glvxStencilCircle(x, y, r, extents);
+	glvxPaint(extents);
+}
+
+void glvxFillMasked(size_t count, float *curves) {
+	glvxExtents extents;
+
+	glvxStencil(count, curves, extents);
+	glvxEnableMask();
+	glvxPaint(extents);
+}
+
+void glvxFillRectMasked(glvxExtents rect) {
+	glvxStencilRect(rect);
+	glvxEnableMask();
+	glvxPaint(rect);
+}
+
+void glvxFillRoundRectMasked(glvxExtents rect, float r) {
+	glvxStencilRoundRect(rect, r);
+	glvxEnableMask();
+	glvxPaint(rect);
+}
+
+void glvxFillCircleMasked(float x, float y, float r) {
+	glvxExtents extents;
+	glvxStencilCircle(x, y, r, extents);
+	glvxEnableMask();
+	glvxPaint(extents);
+}

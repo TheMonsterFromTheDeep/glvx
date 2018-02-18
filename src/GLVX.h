@@ -104,6 +104,8 @@ extern void glvxEvenOdd(size_t count, float *points);
  */
 extern void glvxStencil(size_t count, float *curves, glvxExtents extents);
 extern void glvxStencilRect(glvxExtents);
+extern void glvxStencilRoundRect(glvxExtents, float r);
+extern void glvxStencilCircle(float x, float y, float r, glvxExtents extents);
 
 /* Prevents subsequent drawing operations from being affected by the mask from glStencil(). 
  * Does not do any overwrite of the stencil buffer.
@@ -125,9 +127,13 @@ extern void glvxDisableStencil();
  */
 extern void glvxFill(size_t count, float *curves);
 extern void glvxFillRect(glvxExtents);
+extern void glvxFillRoundRect(glvxExtents, float r);
+extern void glvxFillCircle(float x, float y, float r);
 
 extern void glvxFillMasked(size_t count, float *curves);
 extern void glvxFillRectMasked(glvxExtents);
+extern void glvxFillRoundRectMasked(glvxExtents, float r);
+extern void glvxFillCircleMasked(float x, float y, float r);
 
 extern void glvxStencilToMask(glvxExtents);
 extern void glvxEnableMask();
@@ -166,6 +172,9 @@ extern void glvxGetExtents(glvxCurve curve, glvxExtents extents);
  * extents[3] = Curve height
  */
 extern void glvxGetBounds(glvxCurve curve, glvxExtents bounds);
+
+extern void glvxGetCircleExtents(float x, float y, float r, glvxExtents extents);
+extern void glvxGetCircleBounds(float x, float y, float r, glvxExtents extents);
 
 /* Gets the time at which the curvature of the specified curve goes to zero.
  * Not all curves have this time; generally the ones that do are the ones with
