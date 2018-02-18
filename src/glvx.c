@@ -7,17 +7,19 @@
 
 #include "GLVX.h"
 
+float *curveEvenOddList = NULL;
+size_t curveEvenOddListSize = 0;
+
+static GLuint hsvShader = 0;
+static GLuint strokeHsvShader = 0;
+
 #define GLVX_IMPLEMENTATION
 #include "glvxInternalParameters.h"
 #include "glvxInternalCurveProperties.h"
 #include "glvxInternalVector.h"
 #include "glvxInternalUtil.h"
 #include "glvxInternalShaderLoader.h"
-
-float *curveEvenOddList = NULL;
-size_t curveEvenOddListSize = 0;
-
-static GLuint hsvShader = 0;
+#include "glvxInternalColorConversion.h"
 
 int glvxInit() {
 	if (GLEW_OK != glewInit()) {
@@ -30,21 +32,18 @@ int glvxInit() {
 			,
 			#include "glvxFragmentShaderHSV.h"
 		);
+		strokeHsvShader = compileShader(
+			"#version 110\n"
+			"void main(void) {"
+				"gl_Position = gl_ModelViewProjectionMatrix * gl_Vertex;"
+				"gl_FrontColor = gl_Color;"
+				"gl_BackColor = gl_FrontColor;"
+			"}",
+			#include "glvxFragmentShaderHSV.h"
+		);
 	}
 
 	return 0;
-}
-
-void glvxUseHSV() {
-	if (GLEW_VERSION_1_5) {
-		glUseProgram(hsvShader);
-	}
-}
-
-void glvxUseRGB() {
-	if (GLEW_VERSION_1_5) {
-		glUseProgram(0);
-	}
 }
 
 void glvxCleanup() {
@@ -183,18 +182,52 @@ void glvxStroke(glvxCurve c) {
 	float width = beginWidth;
 	float widthStep = (endWidth - beginWidth) / samples;
 
-	float colorStep[4];
-	float color[4];
+	float leftColorStep[4];
+	float leftColor[4];
+	float rightColorStep[4];
+	float rightColor[4];
 
-	color[0] = beginColor[0];
-	color[1] = beginColor[1];
-	color[2] = beginColor[2];
-	color[3] = beginColor[3];
+	glvxColor myLeftBegin;
+	glvxColor myLeftEnd;
+	glvxColor myRightBegin;
+	glvxColor myRightEnd;
 
-	colorStep[0] = (endColor[0] - beginColor[0]) / samples;
-	colorStep[1] = (endColor[1] - beginColor[1]) / samples;
-	colorStep[2] = (endColor[2] - beginColor[2]) / samples;
-	colorStep[3] = (endColor[3] - beginColor[3]) / samples;
+	if (interpolationMode == INTERPOLATION_HSV) {
+		conversionHSV(leftBeginColor, myLeftBegin);
+		conversionHSV(leftEndColor, myLeftEnd);
+		conversionHSV(rightBeginColor, myRightBegin);
+		conversionHSV(rightEndColor, myRightEnd);
+
+		if (GLEW_VERSION_1_5) {
+			glUseProgram(strokeHsvShader);
+		}
+	}
+	else {
+		conversionPassthrough(rightBeginColor, myLeftBegin);
+		conversionPassthrough(rightEndColor, myLeftEnd);
+		conversionPassthrough(rightBeginColor, myRightBegin);
+		conversionPassthrough(rightEndColor, myRightEnd);
+	}
+
+	leftColor[0] = myLeftBegin[0];
+	leftColor[1] = myLeftBegin[1];
+	leftColor[2] = myLeftBegin[2];
+	leftColor[3] = myLeftBegin[3];
+
+	leftColorStep[0] = (myLeftEnd[0] - myLeftBegin[0]) / samples;
+	leftColorStep[1] = (myLeftEnd[1] - myLeftBegin[1]) / samples;
+	leftColorStep[2] = (myLeftEnd[2] - myLeftBegin[2]) / samples;
+	leftColorStep[3] = (myLeftEnd[3] - myLeftBegin[3]) / samples;
+
+	rightColor[0] = myRightBegin[0];
+	rightColor[1] = myRightBegin[1];
+	rightColor[2] = myRightBegin[2];
+	rightColor[3] = myRightBegin[3];
+
+	rightColorStep[0] = (myRightEnd[0] - myRightBegin[0]) / samples;
+	rightColorStep[1] = (myRightEnd[1] - myRightBegin[1]) / samples;
+	rightColorStep[2] = (myRightEnd[2] - myRightBegin[2]) / samples;
+	rightColorStep[3] = (myRightEnd[3] - myRightBegin[3]) / samples;
 
 	/* We are rendering the curve as a series of quads */
 	glBegin(GL_QUAD_STRIP);
@@ -211,18 +244,22 @@ void glvxStroke(glvxCurve c) {
 	 */
 	orth = multiply(orth, fastInverseSquareRoot(squaredLength(orth)));
 
-	glColor4f(color[0] * leftColor[0], color[1] * leftColor[1], color[2] * leftColor[2], color[3] * leftColor[3]);
+	glColor4f(leftColor[0], leftColor[1], leftColor[2], leftColor[3]);
 	glVertexVector(add(previous, multiply(orth, width * (1 + strokeOffset))));
-	glColor4f(color[0] * rightColor[0], color[1] * rightColor[1], color[2] * rightColor[2], color[3] * rightColor[3]);
+	glColor4f(rightColor[0], rightColor[1], rightColor[2], rightColor[3]);
 	glVertexVector(subtract(previous, multiply(orth, width * (1 - strokeOffset))));
 	
 	while(samples > 1) {
 		sampleValue += sampleSize;
 		width += widthStep;
-		color[0] += colorStep[0];
-		color[1] += colorStep[1];
-		color[2] += colorStep[2];
-		color[3] += colorStep[3];
+		leftColor[0] += leftColorStep[0];
+		leftColor[1] += leftColorStep[1];
+		leftColor[2] += leftColorStep[2];
+		leftColor[3] += leftColorStep[3];
+		rightColor[0] += rightColorStep[0];
+		rightColor[1] += rightColorStep[1];
+		rightColor[2] += rightColorStep[2];
+		rightColor[3] += rightColorStep[3];
 		Vector next = curveVector(c, sampleValue);
 
 		Vector nextDelta = subtract(current, next);
@@ -239,9 +276,9 @@ void glvxStroke(glvxCurve c) {
 		}
 
 		/* Add the two points (which lie on the bisector) */
-		glColor4f(color[0] * leftColor[0], color[1] * leftColor[1], color[2] * leftColor[2], color[3] * leftColor[3]);
+		glColor4f(leftColor[0], leftColor[1], leftColor[2], leftColor[3]);
 		glVertexVector(add(current, multiply(proj, 1 + strokeOffset)));
-		glColor4f(color[0] * rightColor[0], color[1] * rightColor[1], color[2] * rightColor[2], color[3] * rightColor[3]);
+		glColor4f(rightColor[0], rightColor[1], rightColor[2], rightColor[3]);
 		glVertexVector(subtract(current, multiply(proj, 1 - strokeOffset)));
 
 		/* We calculate these vectors for the next loop */
@@ -258,12 +295,17 @@ void glvxStroke(glvxCurve c) {
 
 	/* Last point */
 	current = curveVector(c, sampleValue);
-	glColor4f(color[0] * leftColor[0], color[1] * leftColor[1], color[2] * leftColor[2], color[3] * leftColor[3]);
+	glColor4f(leftColor[0], leftColor[1], leftColor[2], leftColor[3]);
 	glVertexVector(add(current, multiply(orth, 1 + strokeOffset)));
-	glColor4f(color[0] * rightColor[0], color[1] * rightColor[1], color[2] * rightColor[2], color[3] * rightColor[3]);
+	glColor4f(rightColor[0], rightColor[1], rightColor[2], rightColor[3]);
 	glVertexVector(subtract(current, multiply(orth, 1 - strokeOffset)));
 
 	glEnd();
+
+	if(interpolationMode == INTERPOLATION_HSV && GLEW_VERSION_1_5) {
+		/* Revert to normal hsv shader */
+		glUseProgram(hsvShader);
+	}
 }
 
 inline void glvxEvenOdd(size_t count, float *points) {

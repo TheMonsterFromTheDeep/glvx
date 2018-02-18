@@ -3,13 +3,16 @@
 #define FILL_MODE_SOLID 0
 #define FILL_MODE_GRADIENT 1
 
+#define INTERPOLATION_RGB 0
+#define INTERPOLATION_HSV 1
+
 static float sampleRatio = 1.f;
 static float miterLimit = 5.f;
 
-static glvxColor leftColor = { 1.f, 1.f, 1.f, 1.f };
-static glvxColor rightColor = { 1.f, 1.f, 1.f, 1.f };
-static glvxColor beginColor = { 0.f, 0.f, 0.f, 1.f };
-static glvxColor endColor = { 0.f, 0.f, 0.f, 1.f };
+static glvxColor leftBeginColor = { 0.f, 0.f, 0.f, 1.f };
+static glvxColor rightBeginColor = { 0.f, 0.f, 0.f, 1.f };
+static glvxColor leftEndColor = { 0.f, 0.f, 0.f, 1.f };
+static glvxColor rightEndColor = { 0.f, 0.f, 0.f, 1.f };
 
 static float beginWidth = 1.f;
 static float endWidth = 1.f;
@@ -21,6 +24,8 @@ static float gradDeltaX = 1;
 static float gradDeltaY = 0;
 
 static int fillMode = FILL_MODE_SOLID;
+
+static int interpolationMode = INTERPOLATION_RGB;
 
 static float *gradientTimes;
 static float *gradientColors;
@@ -56,21 +61,41 @@ void glvxMiterLimit(float newMiterLimit) {
 	miterLimit = newMiterLimit;
 }
 
-void glvxLeftColor(glvxColor newColor) { SET_COLOR(leftColor, newColor); }
-void glvxLeftColor3(float r, float g, float b) { SET_COLOR_RGB(leftColor); }
-void glvxLeftColor4(float r, float g, float b, float a) { SET_COLOR_RGBA(leftColor); }
+void glvxLeftBeginColor(glvxColor newColor) { SET_COLOR(leftBeginColor, newColor); }
+void glvxLeftBeginColor3(float r, float g, float b) { SET_COLOR_RGB(leftBeginColor); }
+void glvxLeftBeginColor4(float r, float g, float b, float a) { SET_COLOR_RGBA(leftBeginColor); }
 
-void glvxRightColor(glvxColor newColor) { SET_COLOR(rightColor, newColor); }
-void glvxRightColor3(float r, float g, float b) { SET_COLOR_RGB(rightColor); }
-void glvxRightColor4(float r, float g, float b, float a) { SET_COLOR_RGBA(rightColor); }
+void glvxRightBeginColor(glvxColor newColor) { SET_COLOR(rightBeginColor, newColor); }
+void glvxRightBeginColor3(float r, float g, float b) { SET_COLOR_RGB(rightBeginColor); }
+void glvxRightBeginColor4(float r, float g, float b, float a) { SET_COLOR_RGBA(rightBeginColor); }
 
-void glvxBeginColor(glvxColor newColor) { SET_COLOR(beginColor, newColor); }
-void glvxBeginColor3(float r, float g, float b) { SET_COLOR_RGB(beginColor); }
-void glvxBeginColor4(float r, float g, float b, float a) { SET_COLOR_RGBA(beginColor); }
+void glvxLeftEndColor(glvxColor newColor) { SET_COLOR(leftEndColor, newColor); }
+void glvxLeftEndColor3(float r, float g, float b) { SET_COLOR_RGB(leftEndColor); }
+void glvxLeftEndColor4(float r, float g, float b, float a) { SET_COLOR_RGBA(leftEndColor); }
 
-void glvxEndColor(glvxColor newColor) { SET_COLOR(endColor, newColor);  }
-void glvxEndColor3(float r, float g, float b) { SET_COLOR_RGB(endColor); }
-void glvxEndColor4(float r, float g, float b, float a) { SET_COLOR_RGBA(endColor); }
+void glvxRightEndColor(glvxColor newColor) { SET_COLOR(rightEndColor, newColor);  }
+void glvxRightEndColor3(float r, float g, float b) { SET_COLOR_RGB(rightEndColor); }
+void glvxRightEndColor4(float r, float g, float b, float a) { SET_COLOR_RGBA(rightEndColor); }
+
+void glvxLeftColor(glvxColor newColor) {
+	glvxLeftBeginColor(newColor);
+	glvxLeftEndColor(newColor);
+}
+
+void glvxRightColor(glvxColor newColor) {
+	glvxRightBeginColor(newColor);
+	glvxRightEndColor(newColor);
+}
+
+void glvxBeginColor(glvxColor newColor) {
+	glvxLeftBeginColor(newColor);
+	glvxRightBeginColor(newColor);
+}
+
+void glvxEndColor(glvxColor newColor) {
+	glvxLeftEndColor(newColor);
+	glvxRightEndColor(newColor);
+}
 
 void glvxBeginWidth(float newWidth) {
 	/* Because we use half width anyways, calculate that here */
@@ -108,6 +133,20 @@ void glvxGradientEnd(float x, float y) {
 void glvxGradientDirection(float x, float y) {
 	gradDeltaX = x;
 	gradDeltaY = y;
+}
+
+void glvxUseHSV() {
+	if (GLEW_VERSION_1_5) {
+		interpolationMode = INTERPOLATION_HSV;
+		glUseProgram(hsvShader);
+	}
+}
+
+void glvxUseRGB() {
+	if (GLEW_VERSION_1_5) {
+		interpolationMode = INTERPOLATION_RGB;
+		glUseProgram(0);
+	}
 }
 
 #else
