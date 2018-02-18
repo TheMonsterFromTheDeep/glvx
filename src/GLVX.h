@@ -60,13 +60,7 @@ extern void glvxBeginWidth(float width);
 extern void glvxEndWidth(float width);
 extern void glvxStrokeOffset(float offset);
 
-/* Fills the specified simple polygon.
- * The implementation of this method is not guaranteed to be earcut, as long as it behaves equivalently or better.
- * This means it is incorrect to call this method with a non-simple polygon and expect a particular result.
- * 'points' specifies the number of points in the polygon, and 'polygon' is a list of x, y pairs.
- * 'polygon' should have at least twice 'points' number of elements.
- */
-extern void glvxEarcut(size_t points, float *polygon);
+extern void glvxEvenOdd(size_t count, float *points);
 
 /* Sets up the stencil buffer for filling the specified curve.
  * 'curves' is an array of floating-point values, with at least 8 * 'count' members,

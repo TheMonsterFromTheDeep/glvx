@@ -8,26 +8,19 @@
 
 #include <math.h>
 
-struct PolygonPoint {
-	struct PolygonPoint *previous;
-	struct PolygonPoint *next;
-	float x;
-	float y;
-};
-
-struct PolygonPoint *polygonPointList = NULL;
-size_t polygonPointListSize = 0;
-
 #define GLVX_IMPLEMENTATION
-#include "glvxInternalVector.h"
-#include "glvxInternalUtil.h"
 #include "glvxInternalParameters.h"
 #include "glvxInternalCurveProperties.h"
+#include "glvxInternalVector.h"
+#include "glvxInternalUtil.h"
+
+float *curveEvenOddList = NULL;
+size_t curveEvenOddListSize = 0;
 
 void glvxCleanup() {
-	free(polygonPointList);
-	polygonPointList = NULL;
-	polygonPointListSize = 0;
+	free(curveEvenOddList);
+	curveEvenOddList = NULL;
+	curveEvenOddListSize = 0;
 }
 
 void glvxGetExtents(glvxCurve c, glvxExtents extents) {
@@ -239,96 +232,27 @@ void glvxStroke(glvxCurve c) {
 	glEnd();
 }
 
-static inline void performEarcut(size_t count) {
-	struct PolygonPoint *p = polygonPointList;
+inline void glvxEvenOdd(size_t count, float *points) {
+	/* Setup stencil */
+	glEnable(GL_STENCIL_TEST);
+	glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
+	/* We only need the first stencil bit for this algorithm */
+	glStencilMask(1);
 
-	glBegin(GL_TRIANGLES);
+	/* Set stencil to toggle everytime a pixel is drawn */
+	glStencilFunc(GL_ALWAYS, 0, 0xff);
+	glStencilOp(GL_KEEP, GL_KEEP, GL_INCR);
 
-	size_t remainingPoints = count;
-
-	size_t earError = 0; /* Used to prevent an infinite loop if bad geometry is specified */
-
-	while (remainingPoints > 3) {
-		struct PolygonPoint *test = p->next->next;
-		int isEar = 1;
-
-		/* Check if this is an ear */
-		while (test->next != p) {
-			if (isInside(p, test->x, test->y)) {
-				if (test != p->next && test != p->previous)
-					isEar = 0;
-				break;
-			}
-			test = test->next;
-		}
-
-		if (isEar) {
-			/* If this is an ear, cut it */
-			glVertex2f(p->previous->x, p->previous->y);
-			glVertex2f(p->x, p->y);
-			glVertex2f(p->next->x, p->next->y);
-			/* Relink the linked list */
-			p->previous->next = p->next;
-			p->next->previous = p->previous;
-			p = p->next;
-			--remainingPoints;
-			earError = 0;
-		}
-		else {
-			/* Check the next vertex */
-			p = p->next;
-			++earError;
-			if (earError >= count) break;
-		}
+	glBegin(GL_TRIANGLE_FAN);
+	for(size_t i = 0; i < count; ++i) {
+		glVertex2f(points[i * 2], points[i * 2 + 1]);
 	}
-
-	glVertex2f(p->previous->x, p->previous->y);
-	glVertex2f(p->x, p->y);
-	glVertex2f(p->next->x, p->next->y);
-
 	glEnd();
 }
 
-void glvxEarcut(size_t count, float *polygon) {
-#define list polygonPointList
-#define listSize polygonPointListSize
-	if (!list) {
-		list = malloc(sizeof(struct PolygonPoint) * count);
-		listSize = count;
-	}
-	if (listSize < count) {
-		list = realloc(list, sizeof(struct PolygonPoint) * count);
-		listSize = count;
-	}
-
-	/* Build the list */
-	for (size_t i = 1; i < count - 1; ++i) {
-		list[i].previous = (list + i - 1);
-		list[i].next = (list + i + 1);
-		list[i].x = polygon[i * 2];
-		list[i].y = polygon[i * 2 + 1];
-	}
-	/* Special case for first point */
-	list[0].x = polygon[0];
-	list[0].y = polygon[1];
-	list[0].previous = list + count - 1;
-	list[0].next = list + 1;
-	/* Special case for last point */
-	list[count - 1].x = polygon[2 * (count - 1)];
-	list[count - 1].y = polygon[2 * (count - 1) + 1];
-	list[count - 1].previous = list + count - 2;
-	list[count - 1].next = list;
-
-	/* Perform earcut */
-	performEarcut(count);
-
-#undef list
-#undef listSize
-}
-
 void glvxStencil(size_t count, float *curves, glvxExtents extents) {
-#define list polygonPointList
-#define listSize polygonPointListSize
+#define list curveEvenOddList
+#define listSize curveEvenOddListSize
 	if (count < 1) return;
 
 	/* Setup stencil */
@@ -336,16 +260,16 @@ void glvxStencil(size_t count, float *curves, glvxExtents extents) {
 	glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
 	/* We only need the first stencil bit for this algorithm */
 	glStencilMask(1);
-	size_t requiredPoints = count * 3;
+	size_t requiredListItems = count * 3 * 2;
 
 	/* Ensure that earcut point list is good */
 	if (!list) {
-		list = malloc(sizeof(struct PolygonPoint) * requiredPoints);
-		listSize = requiredPoints;
+		list = malloc(sizeof(float) * requiredListItems);
+		listSize = requiredListItems;
 	}
-	if (listSize < requiredPoints) {
-		list = realloc(list, sizeof(struct PolygonPoint) * requiredPoints);
-		listSize = requiredPoints;
+	if (listSize < requiredListItems) {
+		list = realloc(list, sizeof(float) * requiredListItems);
+		listSize = requiredListItems;
 	}
 
 	/* Represents the total number of points to earcut */
@@ -374,15 +298,15 @@ void glvxStencil(size_t count, float *curves, glvxExtents extents) {
 
 		/* Determine which way this curve connects to previous curve */
 		if (fcmp(x1, lastX) && fcmp(y1, lastY)) {
-			list[write].x = x1;
-			list[write++].y = y1;
+			list[write++] = x1;
+			list[write++] = y1;
 			lastX = x0;
 			lastY = y0;
 		}
 		else {
 			/* If the curve is simply not connected, this will still work */
-			list[write].x = x0;
-			list[write++].y = y0;
+			list[write++] = x0;
+			list[write++] = y0;
 			lastX = x1;
 			lastY = y1;
 		}
@@ -406,20 +330,10 @@ void glvxStencil(size_t count, float *curves, glvxExtents extents) {
 		 */
 		fillCurveSpecific(c, 0, 1, CURVE_SAMPLES(ce[2], ce[3]));
 	}
-	list[write].x = lastX;
-	list[write++].y = lastY;
+	list[write++] = lastX;
+	list[write++] = lastY;
 
-	/* Build links for earcut */
-	for (size_t i = 1; i < totalCount - 1; ++i) {
-		list[i].previous = (list + i - 1);
-		list[i].next = (list + i + 1);
-	}
-	list[0].previous = list + totalCount - 1;
-	list[0].next = list + 1;
-	list[totalCount - 1].previous = list + totalCount - 2;
-	list[totalCount - 1].next = list;
-
-	performEarcut(totalCount);
+	glvxEvenOdd(totalCount, list);
 
 	/* Enable color mask and set stencil pass function */
 	glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
@@ -518,7 +432,7 @@ static void performGradientFill(glvxExtents extents) {
 
 	float dx = -gradDeltaY;
 	float dy = gradDeltaX;
-	float deltaMag = sqrt(dx * dx + dy * dy);
+	float deltaMag = (float)sqrt(dx * dx + dy * dy);
 	dx /= deltaMag;
 	dy /= deltaMag;
 

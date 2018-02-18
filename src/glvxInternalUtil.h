@@ -77,24 +77,6 @@ static inline void fillCurve(glvxCurve c, float t0, float t1) {
 	fillCurveSpecific(c, t0, t1, getCurveSamples(c));
 }
 
-static inline float sign(float x1, float y1, float x2, float y2, float x3, float y3) {
-	return (x1 - x3) * (y2 - y3) - (x2 - x3) * (y1 - y3);
-}
-
-static inline int isInside(struct PolygonPoint *potentialEar, float x, float y) {
-	int b1, b2, b3;
-
-	struct PolygonPoint *p = potentialEar->previous;
-	struct PolygonPoint *n = potentialEar->next;
-
-	b1 = sign(x, y, p->x, p->y, potentialEar->x, potentialEar->y) < 0.f;
-	b2 = sign(x, y, potentialEar->x, potentialEar->y, n->x, n->y) < 0.f;
-	b3 = sign(x, y, n->x, n->y, p->x, p->y) < 0.f;
-
-	return (b1 == b2) && (b2 == b3);
-}
-
-
 #else
 	#error "This file is part of the GLVX implementation. It is not an include file."
 #endif
