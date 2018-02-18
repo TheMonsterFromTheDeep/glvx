@@ -402,7 +402,7 @@ void glvxEarcut(size_t count, float *polygon) {
 #undef listSize
 }
 
-void glvxPaintMask(size_t count, float *curves, glvxExtents extents) {
+void glvxStencil(size_t count, float *curves, glvxExtents extents) {
 #define list polygonPointList
 #define listSize polygonPointListSize
 	if (count < 1) return;
@@ -513,11 +513,11 @@ void glvxPaintMask(size_t count, float *curves, glvxExtents extents) {
 #undef listSize
 }
 
-void glvxClearMask() {
+void glvxDisableStencil() {
 	glDisable(GL_STENCIL_TEST);
 }
 
-void glvxPutMask(glvxExtents extents) {
+void glvxStencilToMask(glvxExtents extents) {
 	glEnable(GL_STENCIL_TEST);
 	glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
 	glStencilMask(3);
@@ -532,7 +532,7 @@ void glvxPutMask(glvxExtents extents) {
 	glEnd();
 }
 
-void glvxBeginMask() {
+void glvxEnableMask() {
 	glEnable(GL_STENCIL_TEST);
 	glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 	glStencilMask(3);
@@ -543,9 +543,28 @@ void glvxFill(size_t count, float *curves) {
 	glvxExtents extents;
 
 	/* Paint stencil buffer */
-	glvxPaintMask(count, curves, extents);
+	glvxStencil(count, curves, extents);
 
-	glvxFillExtents(extents);
+	glvxPaint(extents);
+}
+
+void glvxFillRect(glvxExtents rect) {
+	glvxStencilRect(rect);
+	glvxPaint(rect);
+}
+
+void glvxFillMasked(size_t count, float *curves) {
+	glvxExtents extents;
+
+	glvxStencil(count, curves, extents);
+	glvxEnableMask();
+	glvxPaint(extents);
+}
+
+void glvxFillRectMasked(glvxExtents rect) {
+	glvxStencilRect(rect);
+	glvxEnableMask();
+	glvxPaint(rect);
 }
 
 static float gradBeginX = 0;
@@ -668,7 +687,7 @@ void glvxStencilRect(glvxExtents extents) {
 	glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
 }
 
-void glvxFillExtents(glvxExtents extents) {
+void glvxPaint(glvxExtents extents) {
 	if (fillMode == FILL_MODE_GRADIENT) {
 		performGradientFill(extents);
 	}
@@ -687,7 +706,7 @@ void glvxFillExtents(glvxExtents extents) {
 	/* Re-enable color mask */
 	glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 
-	glvxClearMask();
+	glvxDisableStencil();
 }
 
 void glvxFillModeGradient() { fillMode = FILL_MODE_GRADIENT; }
