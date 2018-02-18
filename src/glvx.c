@@ -203,6 +203,10 @@ void glvxStroke(glvxCurve c) {
 		bi = bisector(delta, nextDelta);
 
 		proj = divide(multiply(bi, width), dot(orth, bi));
+		if (squaredLength(proj) / (width * width) > (miterLimit * miterLimit)) {
+			proj = multiply(proj, fastInverseSquareRoot(squaredLength(proj)));
+			proj = multiply(proj, miterLimit * width);
+		}
 
 		/* Add the two points (which lie on the bisector) */
 		glColor4f(color[0] * leftColor[0], color[1] * leftColor[1], color[2] * leftColor[2], color[3] * leftColor[3]);

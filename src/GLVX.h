@@ -40,6 +40,9 @@ typedef float glvxExtents[4];
  * to 2, and if drawing at half the size, the sample ratio should be set to 0.5.
  */
 extern void glvxSampleRatio(float newSampleRatio);
+
+/* Sets the miter limit. */
+extern void glvxMiterLimit(float newMiterLimit);
 /* Requests the currently set global sample ratio.
  * Initially returns 1.
  */
@@ -82,6 +85,7 @@ extern void glvxStencilRect(glvxExtents);
  * Does not do any overwrite of the stencil buffer.
  */
 extern void glvxDisableStencil();
+
 
 /* Fills the specified shape with whatever the current color is. 
  * 'curves' is an array of floating-point values, with at least 8 * 'count' members,

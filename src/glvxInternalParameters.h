@@ -4,6 +4,7 @@
 #define FILL_MODE_GRADIENT 1
 
 static float sampleRatio = 1.f;
+static float miterLimit = 5.f;
 
 static glvxColor leftColor = { 1.f, 1.f, 1.f, 1.f };
 static glvxColor rightColor = { 1.f, 1.f, 1.f, 1.f };
@@ -37,6 +38,10 @@ void glvxSampleRatio(float newSampleRatio) {
 
 float glvxGetSampleRatio() {
 	return sampleRatio;
+}
+
+void glvxMiterLimit(float newMiterLimit) {
+	miterLimit = newMiterLimit;
 }
 
 void glvxLeftColor(glvxColor newColor) {
