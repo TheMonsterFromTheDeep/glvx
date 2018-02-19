@@ -217,6 +217,9 @@ extern float glvxCurveYEnd(glvxCurve);
 extern void glvxFillModeGradient();
 extern void glvxFillModeSolid();
 
+extern void glvxGradientModeLinear();
+extern void glvxGradientModeRadial();
+
 extern void glvxGradientBegin(float x, float y);
 extern void glvxGradientEnd(float x, float y);
 extern void glvxGradientDirection(float x, float y);

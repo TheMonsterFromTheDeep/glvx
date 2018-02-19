@@ -485,17 +485,60 @@ static void performSolidFill(glvxExtents extents) {
 	glEnd();
 }
 
-static void performGradientFill(glvxExtents extents) {
-	if (gradientPoints < 1) {
-		performSolidFill(extents);
-		return;
-	}	
-	if (gradientPoints == 1) {
-		setGradientColor(0);
-		performSolidFill(extents);
-		return;
-	}
+static void performRadialGradientFill(glvxExtents extents) {
+	float r2;
+	float dx = extents[0] - gradBeginX;
+	float dy = extents[1] - gradBeginY;
+	r2 = dx * dx + dy * dy;
+	dx = extents[2] - gradBeginX;
+	if (dx * dx + dy * dy > r2) r2 = dx * dx + dy * dy;
+	dy = extents[3] - gradBeginY;
+	if (dx * dy + dy * dy > r2) r2 = dx * dx + dy * dy;
+	dx = extents[0] - gradBeginX;
+	if (dx * dx + dy * dy > r2) r2 = dx * dx + dy * dy;
 
+	float r = sqrt(r2);
+	float gradR = sqrt(gradDeltaX * gradDeltaX + gradDeltaY * gradDeltaY);
+
+	size_t steps = (size_t)ceil(PI * 2 * r * sampleRatio); /* Circumference */
+	float stepSize = (float)((PI * 2) / steps);
+
+	for (size_t i = 0; i <= steps; ++i) {
+		float t0 = stepSize * i;
+		float cost0 = (float)cos(t0);
+		float sint0 = (float)sin(t0);
+		float t1 = stepSize * (i + 1);
+		float cost1 = (float)cos(t1);
+		float sint1 = (float)sin(t1);
+
+		glBegin(GL_QUAD_STRIP);
+
+		setGradientColor(0);
+		glVertex2f(gradBeginX, gradBeginY);
+		glVertex2f(gradBeginX, gradBeginY);
+
+		float rad = gradientTimes[0] * gradR;
+		size_t i = 1;
+		while (rad < r) {
+			glVertex2f(gradBeginX + rad * cost0, gradBeginY + rad * sint0);
+			glVertex2f(gradBeginX + rad * cost1, gradBeginY + rad * sint1);
+			if (i >= gradientPoints) break;
+			setGradientColor(i);
+			rad = gradientTimes[i] * gradR;
+			++i;
+		}
+
+		glVertex2f(gradBeginX + r * cost0, gradBeginY + r * sint0);
+		glVertex2f(gradBeginX + r * cost1, gradBeginY + r * sint1);
+
+		float r0 = 0;
+		float r1 = gradientTimes[0] * gradR;
+		
+		glEnd();
+	}
+}
+
+static void performLinearGradientFill(glvxExtents extents) {
 	float dx = -gradDeltaY;
 	float dy = gradDeltaX;
 	float deltaMag = (float)sqrt(dx * dx + dy * dy);
@@ -560,6 +603,23 @@ static void performGradientFill(glvxExtents extents) {
 	}
 
 	glEnd();
+}
+
+static void performGradientFill(glvxExtents extents) {
+	if (gradientPoints < 1) {
+		performSolidFill(extents);
+		return;
+	}
+	if (gradientPoints == 1) {
+		setGradientColor(0);
+		performSolidFill(extents);
+		return;
+	}
+
+	if (gradientMode == GRADIENT_RADIAL)
+		performRadialGradientFill(extents);
+	else
+		performLinearGradientFill(extents);
 }
 
 static inline void stencilWriteSetup() {

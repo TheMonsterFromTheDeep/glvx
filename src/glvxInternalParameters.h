@@ -3,6 +3,9 @@
 #define FILL_MODE_SOLID 0
 #define FILL_MODE_GRADIENT 1
 
+#define GRADIENT_LINEAR 0
+#define GRADIENT_RADIAL 1
+
 #define INTERPOLATION_RGB 0
 #define INTERPOLATION_HSV 1
 
@@ -26,6 +29,8 @@ static float gradDeltaY = 0;
 static int fillMode = FILL_MODE_SOLID;
 
 static int interpolationMode = INTERPOLATION_RGB;
+
+static int gradientMode = GRADIENT_LINEAR;
 
 static float *gradientTimes;
 static float *gradientColors;
@@ -119,6 +124,9 @@ void glvxStrokeOffset(float newOffset) {
 void glvxFillModeGradient() { fillMode = FILL_MODE_GRADIENT; }
 
 void glvxFillModeSolid() { fillMode = FILL_MODE_SOLID; }
+
+void glvxGradientModeLinear() { gradientMode = GRADIENT_LINEAR; }
+void glvxGradientModeRadial() { gradientMode = GRADIENT_RADIAL; }
 
 void glvxGradient(size_t count, float *colors, float *times) {
 	gradientTimes = times;
